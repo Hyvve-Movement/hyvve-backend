@@ -22,7 +22,7 @@ def create_campaign(campaign: CampaignCreate, db: Session = Depends(get_session)
 
 @router.get("/campaigns/{campaign_id}", response_model=CampaignResponse)
 def get_campaign(campaign_id: str, db: Session = Depends(get_session)):
-    db_campaign = db.query(Campaign).filter(Campaign.campaign_id == campaign_id).first()
+    db_campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if db_campaign is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
     return db_campaign
@@ -31,7 +31,7 @@ def get_campaign(campaign_id: str, db: Session = Depends(get_session)):
 def get_active_campaigns(db: Session = Depends(get_session)):
     db_campaigns = db.query(Campaign).filter(Campaign.is_active == True).all()
     return [CampaignsActiveResponse(
-        campaign_id=campaign.campaign_id,
+        campaign_id=campaign.id,
         title=campaign.title,
         description=campaign.description,
         is_active=campaign.is_active,

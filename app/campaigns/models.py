@@ -9,7 +9,7 @@ class Campaign(Base):
     __tablename__ = 'campaigns'
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    campaign_generated_id = Column(String, index=True)
+    onchain_campaign_id = Column(String, index=True)
     title = Column(String, index=True)
     description = Column(String)
     campaign_type = Column(String, index=True)

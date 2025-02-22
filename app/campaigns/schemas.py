@@ -9,6 +9,7 @@ class CampaignCreate(BaseModel):
     data_requirements: str
     quality_criteria: str
     unit_price: float
+    campaign_type: str
     total_budget: float
     min_data_count: int
     max_data_count: int
