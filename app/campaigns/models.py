@@ -33,7 +33,7 @@ class Contribution(Base):
     __tablename__ = 'contributions'
 
     contribution_id = Column(String, primary_key=True, index=True)
-    campaign_id = Column(String, ForeignKey("campaigns.id"), nullable=False, unique=True)
+    campaign_id = Column(String, ForeignKey("campaigns.id"), nullable=False)
     contributor = Column(String)
     data_url = Column(String)
     data_hash = Column(String)
