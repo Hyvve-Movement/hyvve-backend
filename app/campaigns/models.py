@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -9,7 +9,7 @@ class Campaign(Base):
     __tablename__ = 'campaigns'
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    campaign_id = Column(String, index=True)
+    campaign_generated_id = Column(String, index=True)
     title = Column(String, index=True)
     description = Column(String)
     data_requirements = Column(String)
@@ -32,7 +32,7 @@ class Contribution(Base):
     __tablename__ = 'contributions'
 
     contribution_id = Column(String, primary_key=True, index=True)
-    campaign_id = Column(String, index=True)
+    campaign_id = Column(String, ForeignKey("campaigns.id"), nullable=False, unique=True)
     contributor = Column(String)
     data_url = Column(String)
     data_hash = Column(String)
