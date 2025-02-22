@@ -12,6 +12,7 @@ class Campaign(Base):
     campaign_generated_id = Column(String, index=True)
     title = Column(String, index=True)
     description = Column(String)
+    campaign_type = Column(String, index=True)
     data_requirements = Column(String)
     quality_criteria = Column(String)
     unit_price = Column(Float)
