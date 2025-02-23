@@ -21,4 +21,5 @@ def serialize_campaign(campaign: Campaign) -> dict:
         "platform_fee": campaign.platform_fee,
         "is_active": campaign.is_active,
         "created_at": campaign.created_at,
+        "creator": campaign.creator_wallet_address,
     }

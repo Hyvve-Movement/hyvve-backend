@@ -7,6 +7,7 @@ class CampaignCreate(BaseModel):
     title: str
     description: str
     data_requirements: str
+    creator_wallet_address: str
     quality_criteria: str
     unit_price: float
     campaign_type: str

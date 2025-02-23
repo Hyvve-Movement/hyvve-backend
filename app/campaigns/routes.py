@@ -107,26 +107,26 @@ def get_total_rewards_paid(db: Session = Depends(get_session)):
     return {"total_rewards_paid": total_paid}
 
 # Endpoint: Campaigns Created by a Wallet
-@router.get("/wallet/{wallet_id}/campaigns/created", response_model=List[CampaignResponse])
-def get_campaigns_created(wallet_id: str, db: Session = Depends(get_session)):
+@router.get("/wallet/{wallet_address}/campaigns/created", response_model=List[CampaignResponse])
+def get_campaigns_created(wallet_address: str, db: Session = Depends(get_session)):
     """
-    Returns all campaigns created by the wallet specified by wallet_id.
+    Returns all campaigns created by the wallet specified by wallet_address.
     Assumes the Campaign model has a 'creator_wallet' field.
     """
-    campaigns = db.query(Campaign).filter(Campaign.creator_wallet == wallet_id).all()
+    campaigns = db.query(Campaign).filter(Campaign.creator_wallet_address == wallet_address).all()
     if not campaigns:
         raise HTTPException(status_code=404, detail="No campaigns found for this wallet.")
     return campaigns
 
 # Endpoint: Campaigns Contributed to by a Wallet
-@router.get("/wallet/{wallet_id}/campaigns/contributed", response_model=List[CampaignResponse])
-def get_campaigns_contributed(wallet_id: str, db: Session = Depends(get_session)):
+@router.get("/wallet/{wallet_address}/campaigns/contributed", response_model=List[CampaignResponse])
+def get_campaigns_contributed(wallet_address: str, db: Session = Depends(get_session)):
     """
     Returns all campaigns to which the wallet (contributor) has contributed.
     Retrieves contributions made by the wallet, extracts unique campaign IDs,
     and then returns the corresponding campaigns.
     """
-    contributions = db.query(Contribution).filter(Contribution.contributor == wallet_id).all()
+    contributions = db.query(Contribution).filter(Contribution.contributor == wallet_address).all()
     campaign_ids = list({contribution.campaign_id for contribution in contributions})
     if not campaign_ids:
         raise HTTPException(status_code=404, detail="No contributions found for this wallet.")

@@ -10,6 +10,7 @@ class Campaign(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     onchain_campaign_id = Column(String, index=True)
+    creator_wallet_address = Column(String, index=True) 
     title = Column(String, index=True)
     description = Column(String)
     campaign_type = Column(String, index=True)
@@ -34,12 +35,13 @@ class Contribution(Base):
 
     contribution_id = Column(String, primary_key=True, index=True)
     campaign_id = Column(String, ForeignKey("campaigns.id"), nullable=False)
-    contributor = Column(String)
+    contributor = Column(String, index=True)
     data_url = Column(String)
     data_hash = Column(String)
     signature = Column(String)
     transaction_hash = Column(String)
     ai_verification_score = Column(Float, nullable=True)
+    reputation_score = Column(Float, nullable=True)
     quality_score = Column(Integer)
     is_verified = Column(Boolean, default=False)
     reward_claimed = Column(Boolean, default=False)
