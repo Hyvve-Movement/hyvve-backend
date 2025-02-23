@@ -39,6 +39,7 @@ class Contribution(Base):
     data_hash = Column(String)
     signature = Column(String)
     transaction_hash = Column(String)
+    ai_verification_score = Column(Float, nullable=True)
     quality_score = Column(Integer)
     is_verified = Column(Boolean, default=False)
     reward_claimed = Column(Boolean, default=False)
