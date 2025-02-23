@@ -23,9 +23,9 @@ def create_campaign(campaign: CampaignCreate, db: Session = Depends(get_session)
     return serialize_campaign(db_campaign)
 
 
-@router.get("/{campaign_id}", response_model=CampaignResponse)
-def get_campaign(campaign_id: str, db: Session = Depends(get_session)):
-    db_campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+@router.get("/{onchain_campaign_id}", response_model=CampaignResponse)
+def get_campaign(onchain_campaign_id: str, db: Session = Depends(get_session)):
+    db_campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
     if db_campaign is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
     return serialize_campaign(db_campaign)
