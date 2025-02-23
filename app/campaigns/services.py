@@ -4,7 +4,7 @@ from app.campaigns.models import Campaign, Contribution
 
 def serialize_campaign(campaign: Campaign) -> dict:
     return {
-        "campaign_id": campaign.id,  # Map model's 'id' to schema's 'campaign_id'
+        "campaign_id": campaign.id,
         "onchain_campaign_id": campaign.onchain_campaign_id,
         "title": campaign.title,
         "description": campaign.description,
@@ -21,5 +21,5 @@ def serialize_campaign(campaign: Campaign) -> dict:
         "platform_fee": campaign.platform_fee,
         "is_active": campaign.is_active,
         "created_at": campaign.created_at,
-        "creator": campaign.creator_wallet_address,
+        "creator_wallet_address": campaign.creator_wallet_address,
     }
