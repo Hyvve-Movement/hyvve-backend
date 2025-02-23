@@ -17,6 +17,10 @@ scalar-fastapi = "^1.0.3"
 aioredis = "^2.0.1"
 python-dotenv = "^1.0.1"
 requests = "^2.32.3"
+openai = "^1.64.0"
+langchain = "^0.3.19"
+langchain-openai = "^0.3.6"
+pypdf2 = "^3.0.1"
 
 
 [build-system]
