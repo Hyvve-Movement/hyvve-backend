@@ -32,6 +32,8 @@ class ContributionCreate(BaseModel):
     signature: str
     transaction_hash: str
     quality_score: int
+    ai_verification_score: Optional[float] = None  # New field for AI verification score
+    reputation_score: Optional[float] = None         # New field for contributor's reputation
 
 class ContributionResponse(ContributionCreate):
     is_verified: bool

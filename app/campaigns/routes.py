@@ -13,31 +13,38 @@ from app.core.database import get_session
 router = APIRouter()
 
 
-@router.post("/campaigns", response_model=CampaignResponse)
+@router.post("/create-campaigns", response_model=CampaignResponse)
 def create_campaign(campaign: CampaignCreate, db: Session = Depends(get_session)):
     db_campaign = Campaign(**campaign.dict())
     db.add(db_campaign)
     db.commit()
     db.refresh(db_campaign)
-    return db_campaign
+    # Return a dict that maps the model's 'id' to 'campaign_id'
+    return serialize_campaign(db_campaign)
 
-@router.get("/campaigns/{campaign_id}", response_model=CampaignResponse)
+
+@router.get("/{campaign_id}", response_model=CampaignResponse)
 def get_campaign(campaign_id: str, db: Session = Depends(get_session)):
     db_campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if db_campaign is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
-    return db_campaign
+    return serialize_campaign(db_campaign)
 
-@router.get("/campaigns/active", response_model=List[CampaignsActiveResponse])
+
+@router.get("/active", response_model=List[CampaignsActiveResponse])
 def get_active_campaigns(db: Session = Depends(get_session)):
     db_campaigns = db.query(Campaign).filter(Campaign.is_active == True).all()
-    return [CampaignsActiveResponse(
-        campaign_id=campaign.id,
-        title=campaign.title,
-        description=campaign.description,
-        is_active=campaign.is_active,
-        expiration=campaign.expiration
-    ) for campaign in db_campaigns]
+    return [
+        CampaignsActiveResponse(
+            campaign_id=campaign.id,
+            title=campaign.title,
+            description=campaign.description,
+            is_active=campaign.is_active,
+            expiration=campaign.expiration
+        )
+        for campaign in db_campaigns
+    ]
+
 
 @router.post("/contributions", response_model=ContributionResponse)
 def submit_contribution(contribution: ContributionCreate, db: Session = Depends(get_session)):
@@ -46,6 +53,7 @@ def submit_contribution(contribution: ContributionCreate, db: Session = Depends(
     db.commit()
     db.refresh(db_contribution)
     return db_contribution
+
 
 @router.get("/contributions", response_model=ContributionsListResponse)
 def get_contributions(campaign_id: Optional[str] = None, contributor: Optional[str] = None, db: Session = Depends(get_session)):
@@ -56,6 +64,7 @@ def get_contributions(campaign_id: Optional[str] = None, contributor: Optional[s
         query = query.filter(Contribution.contributor == contributor)
     
     contributions = query.all()
+    # Assuming ContributionResponse matches the Contribution model fields.
     return ContributionsListResponse(contributions=[ContributionResponse(**contrib.__dict__) for contrib in contributions])
 
 
