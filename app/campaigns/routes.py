@@ -239,7 +239,7 @@ def get_unique_contributor_count(onchain_campaign_id: str, db: Session = Depends
 def get_average_cost_per_submission(onchain_campaign_id: str, db: Session = Depends(get_session)):
     """
     Calculate the average cost per submission for a particular campaign.
-    Here we assume each submission costs the campaign's unit price.
+    The calculation is based on the campaign's total budget divided by the total number of contributions.
     If there are no submissions, return 0.
     """
     campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
@@ -251,8 +251,10 @@ def get_average_cost_per_submission(onchain_campaign_id: str, db: Session = Depe
         .filter(Contribution.campaign_id == campaign.id)
         .count()
     )
-    avg_cost = campaign.unit_price if submissions_count > 0 else 0
+    
+    avg_cost = float(campaign.total_budget) / submissions_count if submissions_count > 0 else 0
     return {"average_cost_per_submission": avg_cost}
+
 
 
 @router.get("/analytics/average-reputation/{wallet_address}")
