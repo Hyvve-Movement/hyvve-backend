@@ -24,6 +24,7 @@ class Campaign(Base):
     metadata_uri = Column(String)
     transaction_hash = Column(String)
     platform_fee = Column(Float)
+    is_premium = Column(Boolean, default=False, index=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

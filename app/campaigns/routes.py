@@ -39,9 +39,14 @@ def get_campaigns_created_by_wallet(
     Retrieve all campaigns created by the specified creator_wallet_address.
     Each campaign is serialized using the serialize_campaign function.
     """
-    campaigns = db.query(Campaign).filter(
-        Campaign.creator_wallet_address == creator_wallet_address
-    ).all()
+    campaigns = (
+        db.query(Campaign).filter(
+            Campaign.creator_wallet_address == creator_wallet_address
+        )
+        .options(joinedload(Campaign.contributions))
+        .order_by(Campaign.created_at.desc())
+        .all()
+    )
 
     if not campaigns:
         raise HTTPException(
@@ -74,6 +79,7 @@ def get_active_campaigns(db: Session = Depends(get_session)):
     db_campaigns = (
         db.query(Campaign)
         .options(joinedload(Campaign.contributions))
+        .order_by(Campaign.created_at.desc())
         .filter(Campaign.is_active == True)
         .all()
     )
@@ -114,16 +120,28 @@ def submit_contribution(contribution: ContributionCreate, db: Session = Depends(
 
 
 @router.get("/contributions", response_model=ContributionsListResponse)
-def get_contributions(campaign_id: Optional[str] = None, contributor: Optional[str] = None, db: Session = Depends(get_session)):
+def get_contributions(
+    campaign_id: Optional[str] = None, 
+    contributor: Optional[str] = None, 
+    db: Session = Depends(get_session)
+):
     query = db.query(Contribution)
+
     if campaign_id:
         query = query.filter(Contribution.campaign_id == campaign_id)
     if contributor:
         query = query.filter(Contribution.contributor == contributor)
     
+    # Order by created_at in descending order (most recent first)
+    query = query.order_by(Contribution.created_at.desc())
+
     contributions = query.all()
+
     # Assuming ContributionResponse matches the Contribution model fields.
-    return ContributionsListResponse(contributions=[ContributionResponse(**contrib.__dict__) for contrib in contributions])
+    return ContributionsListResponse(
+        contributions=[ContributionResponse(**contrib.__dict__) for contrib in contributions]
+    )
+
 
 
 @router.get("/analytics/total-contributions")
@@ -145,14 +163,39 @@ def get_average_reputation(db: Session = Depends(get_session)):
     return {"average_reputation": avg_rep}
 
 # Endpoint: Average AI Verification Score
-@router.get("/analytics/average-ai-verification")
-def get_average_ai_verification(db: Session = Depends(get_session)):
+@router.get("/analytics/average-ai-verification/{wallet_address}/{onchain_campaign_id}")
+def get_average_ai_verification(
+    wallet_address: str, 
+    onchain_campaign_id: str, 
+    db: Session = Depends(get_session)
+):
     """
-    Returns the average AI verification score.
-    Assumes the Contribution model has an 'ai_verification_score' field.
+    Returns the average AI verification score for a specific contributor (wallet address) 
+    in a specific campaign (onchain campaign id).
+    The average is calculated as the total AI verification score divided by the number of contributions made by the contributor.
     """
-    avg_ai = db.query(func.avg(Contribution.ai_verification_score)).scalar()
-    return {"average_ai_verification": avg_ai}
+    # Get the campaign using the onchain_campaign_id
+    campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    # Get the total AI verification score and count of contributions for the specified wallet address and campaign
+    total_ai_score, contrib_count = db.query(
+        func.sum(Contribution.ai_verification_score).label('total_ai_score'),
+        func.count(Contribution.contribution_id).label('contrib_count')
+    ).filter(
+        Contribution.contributor == wallet_address,
+        Contribution.campaign_id == campaign.id
+    ).first()
+
+    if contrib_count == 0:
+        return {"average_ai_verification": 0}
+
+    avg_ai_verification = total_ai_score / contrib_count if total_ai_score is not None else 0
+
+    return {"average_ai_verification": avg_ai_verification}
+
 
 
 # Endpoint: Total Rewards Paid
@@ -346,12 +389,24 @@ def get_campaign_leaderboard(onchain_campaign_id: str, db: Session = Depends(get
 def get_campaigns_created(wallet_address: str, db: Session = Depends(get_session)):
     """
     Returns all campaigns created by the wallet specified by wallet_address.
-    Assumes the Campaign model has a 'creator_wallet' field.
+    Assumes the Campaign model has a 'creator_wallet_address' field.
     """
-    campaigns = db.query(Campaign).filter(Campaign.creator_wallet_address == wallet_address).all()
+    campaigns = (
+        db.query(Campaign)
+        .filter(Campaign.creator_wallet_address == wallet_address)
+        .options(joinedload(Campaign.contributions))
+        .order_by(Campaign.created_at.desc())
+        .all()
+    )
     if not campaigns:
         raise HTTPException(status_code=404, detail="No campaigns found for this wallet.")
-    return campaigns
+    
+    # Assuming 'serialize_campaign' is used to format the response, you can also use CampaignResponse directly.
+    return [
+        serialize_campaign(campaign, len(campaign.contributions))  # You can adjust this to match your model
+        for campaign in campaigns
+    ]
+
 
 # Endpoint: Campaigns Contributed to by a Wallet
 @router.get("/wallet/{wallet_address}/campaigns/contributed", response_model=List[CampaignResponse])

@@ -179,74 +179,6 @@ The Hive Data Marketplace enables users to create data contribution campaigns wh
 
 ---
 
-### Payment Endpoints
-
-#### `POST /payments`
-**Description**: Processes payment to a contributor when their data is sold.
-
-**Request Body**:
-```json
-{
-  "contributor": "0x1234567890abcdef",
-  "campaign_id": "unique-campaign-id",
-  "amount": 100,
-  "payment_method": "bank_transfer"
-}
-```
-
-**Response**:
-```json
-{
-  "status": "success",
-  "message": "Payment processed successfully.",
-  "transaction_hash": "0xpaymenttxhash"
-}
-```
-
----
-
-### Marketplace Endpoints
-
-#### `GET /marketplace`
-**Description**: Lists campaigns that are ready to be sold or accessed by buyers.
-
-**Response**:
-```json
-[
-  {
-    "campaign_id": "unique-campaign-id",
-    "title": "Campaign Title",
-    "description": "Campaign Description",
-    "data_requirements": "Data requirements for contributors",
-    "price": 5000
-  }
-]
-```
-
-#### `POST /marketplace/sell`
-**Description**: Puts a completed campaign on sale for buyers to purchase.
-
-**Request Body**:
-```json
-{
-  "campaign_id": "unique-campaign-id",
-  "price": 5000,
-  "sale_start": 1628505600,
-  "sale_end": 1628509200
-}
-```
-
-**Response**:
-```json
-{
-  "status": "success",
-  "message": "Campaign successfully listed for sale.",
-  "transaction_hash": "0xmarketplacetxhash"
-}
-```
-
----
-
 ## Models
 
 ### Campaign Model
@@ -255,25 +187,13 @@ Represents a campaign where data collection occurs. Includes fields such as `tit
 ### Contribution Model
 Represents a data contribution to a campaign, including contributor information and the data URL.
 
-### Payment Model
-Represents the payment details when a contributor is compensated for their contribution.
-
-### Marketplace Listing Model
-Represents a listing for a completed campaign that is available for sale.
-
 ---
 
 ## Database Integration
 
-- **SQLAlchemy**: Used for modeling the `Campaign`, `Contribution`, `Payment`, and `MarketplaceListing` entities.
+- **SQLAlchemy**: Used for modeling the `Campaign`, `Contribution` and entities.
 - **PostgreSQL**: The preferred database backend for scalability and reliability.
 
----
-
-## Authentication and Authorization
-
-- **JWT Authentication**: Secure access to API endpoints is handled using JSON Web Tokens (JWT). Each user will authenticate using their credentials and receive a token to access protected routes.
-- **Role-based Access**: Ensure that only campaign creators and admins can manage campaigns and process payments.
 
 ---
 
