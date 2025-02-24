@@ -1,8 +1,10 @@
 from celery import Celery
 import requests
+import time
 
 from app.core.constants import BASE_URL, API_KEY, REDIS_URL
 from app.campaigns.models import Campaign
+from app.core.database import SessionLocal
 
 # Create a Celery app
 celery_app = Celery('tasks', broker=REDIS_URL)  
