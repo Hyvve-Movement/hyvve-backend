@@ -11,6 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from docx import Document
 import os
 import subprocess
+import redis.asyncio as redis
 
 from app.campaigns.models import Campaign
 from app.ai_verification.llm import get_long_context_llm
@@ -21,9 +22,10 @@ class SimilarityScore(BaseModel):
 
 
 class AIVerificationSystem:
-    def __init__(self, openai_api_key: str):
+    def __init__(self, openai_api_key: str, redis_pool: redis.Redis):
         self.openai_api_key = openai_api_key
         openai.api_key = openai_api_key
+        self.redis_pool = redis_pool
         
         # Set up logging
         self.logger = logging.getLogger(__name__)
@@ -158,9 +160,14 @@ class AIVerificationSystem:
                     (
                         "IDENTITY:\n"
                         "You are an expert evaluator tasked with determining how well a document aligns with a campaign description. "
-                        "Evaluate the provided document content against the campaign description and return a single numeric similarity score between 0 and 100. "
-                        "A score of 100 indicates perfect alignment, and 0 indicates no alignment."
+                        "Your task is to assess the alignment based on the content of the document compared to the provided campaign description. "
+                        "Please give a numeric similarity score between 20 and 100, where 100 means the document perfectly aligns with the campaign description, "
+                        "and 20 means there is no alignment at all. "
+                        "The score should reflect how relevant and consistent the content of the document is with the campaign description. "
+                        "Please be as objective and consistent as possible in your assessment. "
+                        "If you determine that the content has a significant similarity to the campaign description, you may assign a higher score."
                     )
+
                 ),
                 (
                     "human",

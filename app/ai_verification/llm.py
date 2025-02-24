@@ -19,7 +19,7 @@ class LLMWrapper(Runnable):
         self,
         provider: str,
         model: str,
-        temperature: float = 1.0,
+        temperature: float = 0.0,
         max_tokens: int = 8192,
         rate_limiter: Union[BaseRateLimiter, None] = None,
     ):
