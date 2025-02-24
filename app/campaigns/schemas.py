@@ -22,6 +22,7 @@ class CampaignCreate(BaseModel):
 class CampaignResponse(CampaignCreate):
     campaign_id: str
     is_active: bool
+    current_contributions: int
     created_at: datetime
 
 class ContributionCreate(BaseModel):
@@ -43,6 +44,12 @@ class ContributionResponse(ContributionCreate):
 
 class CampaignsActiveResponse(BaseModel):
     campaign_id: str
+    onchain_campaign_id: str
+    creator_wallet_address: str
+    unit_price: float
+    total_budget: float
+    max_data_count: int
+    current_contributions: int
     title: str
     description: str
     is_active: bool

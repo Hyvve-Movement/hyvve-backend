@@ -2,7 +2,7 @@ from app.campaigns.models import Campaign, Contribution
 
 
 
-def serialize_campaign(campaign: Campaign) -> dict:
+def serialize_campaign(campaign: Campaign, contributions_count: int) -> dict:
     return {
         "campaign_id": campaign.id,
         "onchain_campaign_id": campaign.onchain_campaign_id,
@@ -21,5 +21,6 @@ def serialize_campaign(campaign: Campaign) -> dict:
         "platform_fee": campaign.platform_fee,
         "is_active": campaign.is_active,
         "created_at": campaign.created_at,
-        "creator_wallet_address": campaign.creator_wallet_address,
+        "creator_wallet_address": campaign.creator_wallet_address or "",
+        "current_contributions": contributions_count,
     }

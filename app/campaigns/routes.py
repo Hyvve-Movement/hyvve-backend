@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, APIRouter
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List, Optional
 
@@ -12,31 +12,46 @@ from app.core.database import get_session
 
 router = APIRouter()
 
+@router.get("/all", response_model=List[CampaignResponse])
+def get_all_campaigns(db: Session = Depends(get_session)):
+    # Eager load contributions to avoid N+1 query issues
+    db_campaigns = db.query(Campaign).options(joinedload(Campaign.contributions)).all()
+    return [
+        serialize_campaign(campaign, len(campaign.contributions))
+        for campaign in db_campaigns
+    ]
+
 
 @router.post("/create-campaigns", response_model=CampaignResponse)
 def create_campaign(campaign: CampaignCreate, db: Session = Depends(get_session)):
     db_campaign = Campaign(**campaign.dict())
+    db_campaign.is_active = True
     db.add(db_campaign)
     db.commit()
     db.refresh(db_campaign)
-    # Return a dict that maps the model's 'id' to 'campaign_id'
-    return serialize_campaign(db_campaign)
-
-
-@router.get("/{onchain_campaign_id}", response_model=CampaignResponse)
-def get_campaign(onchain_campaign_id: str, db: Session = Depends(get_session)):
-    db_campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
-    if db_campaign is None:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    return serialize_campaign(db_campaign)
+    
+    # A new campaign has no contributions yet
+    contributions_count = 0
+    return serialize_campaign(db_campaign, contributions_count)
 
 
 @router.get("/active", response_model=List[CampaignsActiveResponse])
 def get_active_campaigns(db: Session = Depends(get_session)):
-    db_campaigns = db.query(Campaign).filter(Campaign.is_active == True).all()
+    db_campaigns = (
+        db.query(Campaign)
+        .options(joinedload(Campaign.contributions))
+        .filter(Campaign.is_active == True)
+        .all()
+    )
     return [
         CampaignsActiveResponse(
             campaign_id=campaign.id,
+            onchain_campaign_id=str(campaign.onchain_campaign_id),
+            creator_wallet_address=str(campaign.creator_wallet_address),
+            unit_price=campaign.unit_price,
+            total_budget=float(campaign.total_budget),
+            max_data_count=int(campaign.max_data_count),
+            current_contributions=int(len(campaign.contributions)),
             title=campaign.title,
             description=campaign.description,
             is_active=campaign.is_active,
@@ -44,6 +59,15 @@ def get_active_campaigns(db: Session = Depends(get_session)):
         )
         for campaign in db_campaigns
     ]
+
+@router.get("/{onchain_campaign_id}", response_model=CampaignResponse)
+def get_campaign(onchain_campaign_id: str, db: Session = Depends(get_session)):
+    db_campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
+    if db_campaign is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    contributions_count = db.query(Contribution).filter(Contribution.campaign_id == db_campaign.id).count()
+    return serialize_campaign(db_campaign, contributions_count)
+
 
 
 @router.post("/contributions", response_model=ContributionResponse)
