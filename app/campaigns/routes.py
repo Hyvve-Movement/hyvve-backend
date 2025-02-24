@@ -260,14 +260,25 @@ def get_average_cost_per_submission(onchain_campaign_id: str, db: Session = Depe
 @router.get("/analytics/average-reputation/{wallet_address}")
 def get_average_reputation(wallet_address: str, db: Session = Depends(get_session)):
     """
-    Calculate the average reputation score for a given contributor (by wallet address).
+    Calculate the average reputation score for a given contributor (by wallet address)
+    as the total reputation score divided by the number of contributions made by the user.
     """
-    avg_rep = (
-        db.query(func.avg(Contribution.reputation_score))
+    total_rep = (
+        db.query(func.sum(Contribution.reputation_score))
         .filter(Contribution.contributor == wallet_address)
         .scalar()
-    )
-    return {"average_reputation": float(avg_rep) if avg_rep is not None else 0}
+    ) or 0
+
+    contrib_count = (
+        db.query(func.count(Contribution.contribution_id))
+        .filter(Contribution.contributor == wallet_address)
+        .scalar()
+    ) or 0
+
+    avg_rep = total_rep / contrib_count if contrib_count > 0 else 0
+
+    return {"average_reputation": avg_rep}
+
 
 
 @router.get("/analytics/total-submissions/{wallet_address}")
