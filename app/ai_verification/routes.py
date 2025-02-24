@@ -30,32 +30,49 @@ async def verify_contribution(
     The document is then processed to generate a verification score which is saved to a new
     Contribution record.
     """
-    # Retrieve the campaign by its onchain_campaign_id.
+    # Retrieve the campaign by its onchain_campaign_id
     campaign = db.query(Campaign).filter(
         Campaign.onchain_campaign_id == onchain_campaign_id
     ).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
-    # Save the uploaded file to a temporary path.
+    # Save the uploaded file to a temporary path
     temp_file_path = f"/tmp/{uuid.uuid4()}_{file.filename}"
     with open(temp_file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     
-    # Instantiate the AI verification system.
+    # Determine the file MIME type
+    mime_type, _ = mimetypes.guess_type(file.filename)
+
+    # Instantiate the AI verification system
     openai_api_key = OPENAI_API_KEY
     if not openai_api_key:
         raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+    
     verifier = AIVerificationSystem(openai_api_key=openai_api_key)
+
+    # Process text, CSV, and PDF files
+    if mime_type and mime_type.startswith("text") or file.filename.endswith(('.pdf', '.csv', '.txt')):
+        try:
+            verification_score = verifier.verify_text_document(campaign, temp_file_path)
+        except Exception as e:
+            os.remove(temp_file_path)
+            raise HTTPException(status_code=500, detail=f"Text document verification failed: {str(e)}")
     
-    # Generate the verification score.
-    try:
-        verification_score = verifier.verify(campaign, temp_file_path)
-    except Exception as e:
+    # Process image files (PNG, JPG, JPEG, WEBP)
+    elif mime_type and mime_type.startswith("image") or file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+        try:
+            verification_score = verifier.verify_image(campaign, temp_file_path)
+        except Exception as e:
+            os.remove(temp_file_path)
+            raise HTTPException(status_code=500, detail=f"Image verification failed: {str(e)}")
+    
+    else:
         os.remove(temp_file_path)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail="Unsupported file type.")
     
-    # Remove the temporary file.
+    # Remove the temporary file
     os.remove(temp_file_path)
     
     return {
