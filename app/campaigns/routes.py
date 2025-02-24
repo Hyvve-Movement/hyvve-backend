@@ -149,6 +149,7 @@ def get_average_ai_verification(db: Session = Depends(get_session)):
     avg_ai = db.query(func.avg(Contribution.ai_verification_score)).scalar()
     return {"average_ai_verification": avg_ai}
 
+
 # Endpoint: Total Rewards Paid
 @router.get("/analytics/total-rewards-paid")
 def get_total_rewards_paid(db: Session = Depends(get_session)):
@@ -158,6 +159,169 @@ def get_total_rewards_paid(db: Session = Depends(get_session)):
     """
     total_paid = db.query(Contribution).filter(Contribution.reward_claimed == True).count()
     return {"total_rewards_paid": total_paid}
+
+
+@router.get("/analytics/peak-activity/{onchain_campaign_id}")
+def get_peak_activity_hours(onchain_campaign_id: str, db: Session = Depends(get_session)):
+    """
+    Calculate the peak activity hours for a particular campaign.
+    Returns the hour(s) of the day (0-23) with the highest submission counts and the corresponding count.
+    """
+    # Retrieve the campaign
+    campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    # Group contributions for the campaign by the hour (using the created_at timestamp)
+    results = (
+        db.query(
+            func.extract('hour', Contribution.created_at).label("hour"),
+            func.count(Contribution.contribution_id).label("count")
+        )
+        .filter(Contribution.campaign_id == campaign.id)
+        .group_by("hour")
+        .all()
+    )
+
+    if not results:
+        return {"peak_hours": [], "max_submissions": 0}
+
+    # Determine the maximum submission count
+    max_count = max(r.count for r in results)
+    # Find all hours that have this maximum count
+    peak_hours = [int(r.hour) for r in results if r.count == max_count]
+
+    return {"peak_hours": peak_hours, "max_submissions": max_count}
+
+
+@router.get("/analytics/top-contributors/{onchain_campaign_id}")
+def get_top_contributors(onchain_campaign_id: str, db: Session = Depends(get_session)):
+    """
+    Retrieve the top contributors for a particular campaign, ordered by number of submissions (top 10).
+    """
+    campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    results = (
+        db.query(
+            Contribution.contributor,
+            func.count(Contribution.contribution_id).label("submissions")
+        )
+        .filter(Contribution.campaign_id == campaign.id)
+        .group_by(Contribution.contributor)
+        .order_by(func.count(Contribution.contribution_id).desc())
+        .limit(10)
+        .all()
+    )
+
+    return [{"contributor": r.contributor, "submissions": r.submissions} for r in results]
+
+
+@router.get("/analytics/unique-contributors/{onchain_campaign_id}")
+def get_unique_contributor_count(onchain_campaign_id: str, db: Session = Depends(get_session)):
+    """
+    Get the unique contributor count for a particular campaign.
+    """
+    campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    unique_count = (
+        db.query(func.count(func.distinct(Contribution.contributor)))
+        .filter(Contribution.campaign_id == campaign.id)
+        .scalar()
+    )
+    return {"unique_contributor_count": unique_count}
+
+
+@router.get("/analytics/average-cost/{onchain_campaign_id}")
+def get_average_cost_per_submission(onchain_campaign_id: str, db: Session = Depends(get_session)):
+    """
+    Calculate the average cost per submission for a particular campaign.
+    Here we assume each submission costs the campaign's unit price.
+    If there are no submissions, return 0.
+    """
+    campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    submissions_count = (
+        db.query(Contribution)
+        .filter(Contribution.campaign_id == campaign.id)
+        .count()
+    )
+    avg_cost = campaign.unit_price if submissions_count > 0 else 0
+    return {"average_cost_per_submission": avg_cost}
+
+
+@router.get("/analytics/average-reputation/{wallet_address}")
+def get_average_reputation(wallet_address: str, db: Session = Depends(get_session)):
+    """
+    Calculate the average reputation score for a given contributor (by wallet address).
+    """
+    avg_rep = (
+        db.query(func.avg(Contribution.reputation_score))
+        .filter(Contribution.contributor == wallet_address)
+        .scalar()
+    )
+    return {"average_reputation": float(avg_rep) if avg_rep is not None else 0}
+
+
+@router.get("/analytics/total-submissions/{wallet_address}")
+def get_total_submissions(wallet_address: str, db: Session = Depends(get_session)):
+    """
+    Get the total number of submissions from a contributor across all campaigns.
+    """
+    total = (
+        db.query(Contribution)
+        .filter(Contribution.contributor == wallet_address)
+        .count()
+    )
+    return {"total_submissions": total}
+
+
+@router.get("/analytics/leaderboard/global")
+def get_global_leaderboard(db: Session = Depends(get_session)):
+    """
+    Get the leader board of top 10 contributors across all campaigns, ranked by number of submissions.
+    """
+    results = (
+        db.query(
+            Contribution.contributor,
+            func.count(Contribution.contribution_id).label("submissions")
+        )
+        .group_by(Contribution.contributor)
+        .order_by(func.count(Contribution.contribution_id).desc())
+        .limit(10)
+        .all()
+    )
+    return [{"contributor": r.contributor, "submissions": r.submissions} for r in results]
+
+
+@router.get("/analytics/leaderboard/{onchain_campaign_id}")
+def get_campaign_leaderboard(onchain_campaign_id: str, db: Session = Depends(get_session)):
+    """
+    Get the leader board of top 10 contributors for a particular campaign,
+    ranked by the number of submissions.
+    """
+    campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    results = (
+        db.query(
+            Contribution.contributor,
+            func.count(Contribution.contribution_id).label("submissions")
+        )
+        .filter(Contribution.campaign_id == campaign.id)
+        .group_by(Contribution.contributor)
+        .order_by(func.count(Contribution.contribution_id).desc())
+        .limit(10)
+        .all()
+    )
+    return [{"contributor": r.contributor, "submissions": r.submissions} for r in results]
+
 
 # Endpoint: Campaigns Created by a Wallet
 @router.get("/wallet/{wallet_address}/campaigns/created", response_model=List[CampaignResponse])
