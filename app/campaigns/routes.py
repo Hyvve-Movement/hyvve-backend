@@ -342,33 +342,6 @@ def get_total_submissions(wallet_address: str, db: Session = Depends(get_session
     return {"total_submissions": total}
 
 
-# @router.get("/analytics/leaderboard/global/{onchain_campaign_id}")
-# def get_global_leaderboard(onchain_campaign_id: str, db: Session = Depends(get_session)):
-#     """
-#     Get the leader board of top 10 contributors across all contributions for a specific campaign, 
-#     ranked by the number of submissions for the given campaign's onchain_campaign_id.
-#     """
-#     # Retrieve the campaign using onchain_campaign_id to ensure it exists
-#     campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
-#     if not campaign:
-#         raise HTTPException(status_code=404, detail="Campaign not found")
-
-#     # Query contributions from the specific campaign and rank contributors by submission count
-#     results = (
-#         db.query(
-#             Contribution.contributor,
-#             func.count(Contribution.contribution_id).label("submissions")
-#         )
-#         .filter(Contribution.campaign_id == campaign.id)  # Filter by campaign_id
-#         .group_by(Contribution.contributor)
-#         .order_by(func.count(Contribution.contribution_id).desc())
-#         .limit(10)
-#         .all()
-#     )
-
-#     return [{"contributor": r.contributor, "submissions": r.submissions} for r in results]
-
-
 @router.get("/analytics/leaderboard/global")
 def get_global_leaderboard(db: Session = Depends(get_session)):
     """
@@ -385,7 +358,7 @@ def get_global_leaderboard(db: Session = Depends(get_session)):
         .all()
     )
     return [{"contributor": r.contributor, "submissions": r.submissions} for r in results]
-    
+
 
 @router.get("/analytics/leaderboard/{onchain_campaign_id}")
 def get_campaign_leaderboard(onchain_campaign_id: str, db: Session = Depends(get_session)):
