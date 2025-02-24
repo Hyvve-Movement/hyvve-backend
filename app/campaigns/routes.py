@@ -14,12 +14,17 @@ router = APIRouter()
 
 @router.get("/all", response_model=List[CampaignResponse])
 def get_all_campaigns(db: Session = Depends(get_session)):
-    # Eager load contributions to avoid N+1 query issues
-    db_campaigns = db.query(Campaign).options(joinedload(Campaign.contributions)).all()
+    db_campaigns = (
+        db.query(Campaign)
+        .options(joinedload(Campaign.contributions))
+        .order_by(Campaign.created_at.desc())
+        .all()
+    )
     return [
         serialize_campaign(campaign, len(campaign.contributions))
         for campaign in db_campaigns
     ]
+
 
 @router.get(
     "/{creator_wallet_address}/campaigns/created", 
