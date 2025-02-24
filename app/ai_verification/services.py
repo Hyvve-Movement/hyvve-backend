@@ -5,33 +5,39 @@ from langchain_core.prompt_values import ChatPromptValue
 from langchain_core.messages import SystemMessage, HumanMessage
 import PyPDF2
 import pandas as pd
+from pydantic import BaseModel
+from langchain_core.prompts import ChatPromptTemplate
+
+from app.campaigns.models import Campaign
+from app.ai_verification.llm import get_long_context_llm
 
 
-from app.ai_verification.llm import LLMWrapper
+
+class SimilarityScore(BaseModel):
+    score: float
 
 class AIVerificationSystem:
     def __init__(self, openai_api_key: str):
         self.openai_api_key = openai_api_key
         openai.api_key = openai_api_key
-        # Image verification still uses OpenAI's ChatCompletion API directly.
 
     def verify(self, campaign, file_path: str) -> float:
         """
-        Verifies the provided file against the campaign description.
-        Returns a similarity score (0–100).
+        Verify the provided file against the campaign description.
+        Supports image, text, PDF, and CSV files.
+        Returns a similarity score between 0 and 100.
         """
         mime_type, _ = mimetypes.guess_type(file_path)
         if mime_type:
             if mime_type.startswith("image"):
-                score = self.verify_image(campaign, file_path)
+                return self.verify_image(campaign, file_path)
             elif mime_type.startswith("text") or file_path.endswith('.pdf') or file_path.endswith('.csv'):
-                score = self.verify_text_document(campaign, file_path)
+                return self.verify_text_document(campaign, file_path)
             else:
                 raise ValueError("Unsupported file type: " + mime_type)
         else:
             # Fallback to text processing if MIME type cannot be determined.
-            score = self.verify_text_document(campaign, file_path)
-        return score
+            return self.verify_text_document(campaign, file_path)
 
     def encode_image(self, image_path: str) -> str:
         """
@@ -42,13 +48,10 @@ class AIVerificationSystem:
 
     def verify_image(self, campaign, file_path: str) -> float:
         """
-        Processes an image file by encoding it and sending it along with the campaign description
-        to OpenAI's Chat Completion API for similarity scoring.
+        Process an image by encoding it and sending a multimodal prompt
+        to OpenAI's Chat Completion API to obtain a similarity score.
         """
-        # Encode the image.
         base64_image = self.encode_image(file_path)
-        
-        # Build the multimodal message payload.
         messages = [
             {
                 "role": "user",
@@ -67,10 +70,8 @@ class AIVerificationSystem:
                 ],
             }
         ]
-
-        # Call the OpenAI Chat Completion API.
         response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",  # Adjust model name as needed.
+            model="gpt-4o-mini",  # Adjust model name if necessary.
             messages=messages,
         )
         try:
@@ -82,8 +83,8 @@ class AIVerificationSystem:
 
     def verify_text_document(self, campaign, file_path: str) -> float:
         """
-        Extracts text from a document (plain text, PDF, or CSV) and uses the LLMWrapper
-        (OpenAI provider) to compute a similarity score comparing it with the campaign description.
+        Extracts text from a plain text file, PDF, or CSV file and uses an LLM-based prompt,
+        following the same format as our podcast outline prompt, to generate a similarity score.
         """
         # Extract content based on file type.
         content = ""
@@ -101,53 +102,35 @@ class AIVerificationSystem:
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
-        # Build the prompt messages in a style similar to your outline_episode function.
-        system_message = SystemMessage(
-            content=(
-                "You are an expert at evaluating textual similarity. "
-                "Evaluate how well the following document content aligns with the given campaign description. "
-                "Provide a single numeric score between 0 and 100, where 100 indicates perfect alignment."
-            )
+        # Build a prompt using a format similar to the podcast outline prompt.
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    (
+                        "IDENTITY:\n"
+                        "You are an expert evaluator tasked with determining how well a document aligns with a campaign description. "
+                        "Evaluate the provided document content against the campaign description and return a single numeric similarity score between 0 and 100. "
+                        "A score of 100 indicates perfect alignment, and 0 indicates no alignment."
+                    )
+                ),
+                (
+                    "human",
+                    (
+                        "Campaign Description:\n{campaign_description}\n\n"
+                        "Document Content:\n{document_content}\n\n"
+                        "Similarity Score:"
+                    )
+                ),
+            ]
         )
 
-        human_message = HumanMessage(
-            content=(
-                f"Campaign Description:\n{campaign.description}\n\n"
-                f"Document Content:\n{content}\n\n"
-                "Similarity Score:"
-            )
-        )
-
-        prompt_value = ChatPromptValue(messages=[system_message, human_message])
-
-        # Instantiate the LLMWrapper using the OpenAI provider (gpt-4o-mini model).
-        llm_wrapper = LLMWrapper(provider="openai", model="gpt-4o-mini", temperature=0.0)
-
-        # Invoke the LLM to obtain a similarity score.
-        response_message = llm_wrapper.invoke(prompt_value)
-        response_content = response_message.content.strip()
-
-        try:
-            score = float(response_content)
-        except ValueError:
-            score = 0.0
-        return score
-
-# Example usage:
-if __name__ == "__main__":
-    # A simple Campaign object; in production, use your SQLAlchemy Campaign model.
-    class Campaign:
-        def __init__(self, description):
-            self.description = description
-
-    campaign = Campaign(
-        description="A scenic landscape featuring majestic mountains, a clear blue sky, and a tranquil lake."
-    )
-    
-    api_key = "your-openai-api-key"
-    verifier = AIVerificationSystem(openai_api_key=api_key)
-    
-    file_path = "path/to/your/document_or_image.jpg"  # Adjust the path accordingly.
-    
-    score = verifier.verify(campaign, file_path)
-    print(f"Verification Score: {score}")
+        # Retrieve an LLM instance configured for long context using our project utility.
+        llm = get_long_context_llm()
+        # Chain the prompt with the LLM, specifying structured output.
+        chain = prompt | llm.with_structured_output(SimilarityScore)
+        result = chain.invoke({
+            "campaign_description": campaign.description,
+            "document_content": content,
+        })
+        return result.score

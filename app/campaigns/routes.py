@@ -21,6 +21,35 @@ def get_all_campaigns(db: Session = Depends(get_session)):
         for campaign in db_campaigns
     ]
 
+@router.get(
+    "/{creator_wallet_address}/campaigns/created", 
+    response_model=List[CampaignResponse],
+    summary="Get all campaigns created by a creator wallet address"
+)
+def get_campaigns_created_by_wallet(
+    creator_wallet_address: str, 
+    db: Session = Depends(get_session)
+):
+    """
+    Retrieve all campaigns created by the specified creator_wallet_address.
+    Each campaign is serialized using the serialize_campaign function.
+    """
+    campaigns = db.query(Campaign).filter(
+        Campaign.creator_wallet_address == creator_wallet_address
+    ).all()
+
+    if not campaigns:
+        raise HTTPException(
+            status_code=404, 
+            detail="No campaigns found for the given creator wallet address."
+        )
+    
+    # Serialize each campaign and include the current contributions count.
+    return [
+        serialize_campaign(campaign, len(campaign.contributions))
+        for campaign in campaigns
+    ]
+
 
 @router.post("/create-campaigns", response_model=CampaignResponse)
 def create_campaign(campaign: CampaignCreate, db: Session = Depends(get_session)):

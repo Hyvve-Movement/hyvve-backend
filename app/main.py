@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from scalar_fastapi import get_scalar_api_reference
 
 from app.campaigns.routes import router as campaigns_router
+from app.ai_verification.routes import router as ai_verification_router
 
 
 
@@ -42,6 +43,7 @@ def read_root():
 
 
 app.include_router(campaigns_router, prefix="/campaigns")
+app.include_router(ai_verification_router, prefix="/ai-verification")
 
 if __name__ == "__main__":
     import uvicorn
