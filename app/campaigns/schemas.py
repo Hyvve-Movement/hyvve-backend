@@ -57,3 +57,4 @@ class CampaignsActiveResponse(BaseModel):
 
 class ContributionsListResponse(BaseModel):
     contributions: List[ContributionResponse]
+    unique_contributions_count: int

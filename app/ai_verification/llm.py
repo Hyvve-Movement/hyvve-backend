@@ -189,10 +189,10 @@ def get_fast_llm(fast_llm_provider: str = "openai", rate_limiter: BaseRateLimite
         ValueError: If the configured fast_llm_provider is not supported
 
     The function maps providers to their respective fast model variants:
-    - OpenAI: gpt-4o-mini
+    - OpenAI: gpt-4o
     """
     fast_llm_models = {
-        "openai": "gpt-4o-mini",
+        "openai": "gpt-4o",
     }
 
     if fast_llm_provider not in fast_llm_models:
@@ -232,7 +232,7 @@ def get_long_context_llm(
     - OpenAI: gpt-4o
     """
     long_context_llm_models = {
-        "openai": "gpt-4o-mini",
+        "openai": "gpt-4o",
     }
 
     if long_context_llm_provider not in long_context_llm_models:

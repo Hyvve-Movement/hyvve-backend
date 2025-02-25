@@ -21,6 +21,22 @@ class SimilarityScore(BaseModel):
     score: float
 
 
+class EvaluationScore(BaseModel):
+    accuracy: float
+    alignment: float
+    relevance: float
+    """
+    - word count compliance
+    - grammatical accuracy
+    - semantic relevance
+    - sentiment diversity
+    """
+
+    @property
+    def final_score(self) -> float:
+        # Compute the average of the three criteria
+        return (self.accuracy + self.alignment + self.relevance) / 3
+
 class AIVerificationSystem:
     def __init__(self, openai_api_key: str):
         self.openai_api_key = openai_api_key
@@ -152,28 +168,58 @@ class AIVerificationSystem:
             raise ValueError("Unsupported document format")
 
         # Build a prompt using a format similar to the podcast outline prompt.
+        # prompt = ChatPromptTemplate.from_messages(
+        #     [
+        #         (
+        #             "system",
+        #             (
+        #                 "IDENTITY:\n"
+        #                 "You are an expert evaluator tasked with determining how well a document aligns with the {campaign_description} and {campaign_requirements}. "
+        #                 "Your task is to assess the alignment based on the content of the document compared to the provided campaign description. "
+        #                 "Please give a numeric similarity score between 20 and 100, where 100 means the document perfectly aligns with the campaign description, "
+        #                 "and 20 means there is no alignment at all. "
+        #                 "The score should reflect how relevant and consistent the content of the document is with the campaign description. "
+        #                 "Your goal is to ensure that the results returned remain constant and doesn't change when I retry it."
+        #                 "Please be as objective and consistent as possible in your assessment. "
+        #                 "If you determine that the content has a significant similarity to the campaign description and campaign requirements, you may assign a higher score."
+        #             )
+
+        #         ),
+        #         (
+        #             "human",
+        #             (
+        #                 "Campaign Description:\n{campaign_description}\n\n"
+        #                 "Campaign Requirements:\n{campaign_requirements}\n\n"
+        #                 "Document Content:\n{document_content}\n\n"
+
+        #                 "Similarity Score:"
+        #             )
+        #         ),
+        #     ]
+        # )
+
         prompt = ChatPromptTemplate.from_messages(
             [
                 (
                     "system",
                     (
                         "IDENTITY:\n"
-                        "You are an expert evaluator tasked with determining how well a document aligns with a campaign description. "
-                        "Your task is to assess the alignment based on the content of the document compared to the provided campaign description. "
-                        "Please give a numeric similarity score between 20 and 100, where 100 means the document perfectly aligns with the campaign description, "
-                        "and 20 means there is no alignment at all. "
-                        "The score should reflect how relevant and consistent the content of the document is with the campaign description. "
-                        "Please be as objective and consistent as possible in your assessment. "
-                        "If you determine that the content has a significant similarity to the campaign description, you may assign a higher score."
+                        "You are an expert evaluator tasked with determining how well a document aligns with the {campaign_description} and {campaign_requirements}. "
+                        "Instead of providing a single similarity score, please evaluate the document on the following criteria: "
+                        "Accuracy, Alignment, and Relevance. For each criterion, assign a numeric score between 20 and 100, "
+                        "where 100 means perfect alignment and 20 means no alignment at all. "
+                        "Then, compute the overall similarity score as the average of these three scores. "
+                        "Output your results in JSON format with keys 'accuracy', 'alignment', and 'relevance'. "
+                        "Be as objective and consistent as possible."
                     )
-
                 ),
                 (
                     "human",
                     (
                         "Campaign Description:\n{campaign_description}\n\n"
+                        "Campaign Requirements:\n{campaign_requirements}\n\n"
                         "Document Content:\n{document_content}\n\n"
-                        "Similarity Score:"
+                        "Please provide the individual scores for each criterion."
                     )
                 ),
             ]
@@ -183,8 +229,10 @@ class AIVerificationSystem:
         llm = get_long_context_llm()
         # Chain the prompt with the LLM, specifying structured output.
         chain = prompt | llm.with_structured_output(SimilarityScore)
+        self.logger.info(f"Invoking LLM with campaign description: {campaign.description} and document content: {content}")
         result = chain.invoke({
             "campaign_description": campaign.description,
+            "campaign_requirements": campaign.data_requirements,
             "document_content": content,
         })
 
