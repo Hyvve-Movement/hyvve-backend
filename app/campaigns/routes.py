@@ -365,3 +365,71 @@ def get_average_ai_verification(
 
     avg_ai_verification = total_ai_score / contrib_count if total_ai_score is not None else 0
     return {"average_ai_verification": avg_ai_verification}
+
+
+
+@router.get("/analytics/leaderboard/global/contributors")
+def get_top_global_contributors(db: Session = Depends(get_session)):
+    """
+    Returns top 5 global contributors across all campaigns.
+    For each contributor, returns:
+      - address
+      - total contributions (count)
+      - success rate (average AI verification score)
+      - total amount earned (sum of campaign.unit_price for each contribution)
+    """
+    results = (
+        db.query(
+            Contribution.contributor.label("address"),
+            func.count(Contribution.contribution_id).label("total_contributions"),
+            func.avg(Contribution.ai_verification_score).label("success_rate"),
+            func.sum(Campaign.unit_price).label("total_amount_earned")
+        )
+        .join(Campaign, Campaign.id == Contribution.campaign_id)
+        .group_by(Contribution.contributor)
+        .order_by(func.count(Contribution.contribution_id).desc())  # Order by total contributions (descending)
+        .limit(5)
+        .all()
+    )
+    # Use the _mapping attribute to convert each row to a dict.
+    return [dict(r._mapping) for r in results]
+
+
+
+@router.get("/analytics/leaderboard/global/creators")
+def get_top_campaign_creators(db: Session = Depends(get_session)):
+    """
+    Returns top 5 campaign creators.
+    For each creator, returns:
+      - creator wallet address
+      - total number of campaigns created
+      - total amount spent (sum of campaign.total_budget for campaigns they created)
+      - reputation score (average reputation_score from contributions on their campaigns)
+    """
+    # First, build a subquery to compute the average reputation score for each creator.
+    creator_reputation_subq = (
+        db.query(
+            Campaign.creator_wallet_address.label("creator"),
+            func.avg(Contribution.reputation_score).label("avg_reputation")
+        )
+        .join(Contribution, Contribution.campaign_id == Campaign.id)
+        .group_by(Campaign.creator_wallet_address)
+        .subquery()
+    )
+
+    results = (
+        db.query(
+            Campaign.creator_wallet_address.label("creator"),
+            func.count(Campaign.id).label("total_campaigns"),
+            func.sum(Campaign.total_budget).label("total_amount_spent"),
+            creator_reputation_subq.c.avg_reputation.label("reputation_score")
+        )
+        .outerjoin(creator_reputation_subq, Campaign.creator_wallet_address == creator_reputation_subq.c.creator)
+        .group_by(Campaign.creator_wallet_address, creator_reputation_subq.c.avg_reputation)
+        .order_by(func.count(Campaign.id).desc())
+        .limit(5)
+        .all()
+    )
+    return [dict(r._mapping) for r in results]
+
+
