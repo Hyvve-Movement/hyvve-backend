@@ -256,6 +256,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from app.campaigns.models import Campaign, Contribution
 from app.ai_verification.llm import get_long_context_llm
 from app.core.constants import OPENAI_API_KEY
+from openai import OpenAI
 # Using the asyncio version of redis
 from redis.asyncio import Redis
 
@@ -371,6 +372,7 @@ class AIVerificationSystem:
         """
         self.logger.info(f"Verifying image file: {file_path}")
         base64_image = self.encode_image(file_path)
+        client = OpenAI()
         messages = [
             {
                 "role": "user",
@@ -390,7 +392,7 @@ class AIVerificationSystem:
             }
         ]
         try:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=messages,
             )
