@@ -120,7 +120,7 @@ def get_campaign(onchain_campaign_id: str, db: Session = Depends(get_session)):
 
 
 
-@router.post("/contributions", response_model=ContributionResponse)
+@router.post("/submit-contributions", response_model=ContributionResponse)
 def submit_contribution(contribution: ContributionCreate, db: Session = Depends(get_session)):
     db_contribution = Contribution(**contribution.dict())
     db.add(db_contribution)
@@ -129,7 +129,7 @@ def submit_contribution(contribution: ContributionCreate, db: Session = Depends(
     return db_contribution
 
 
-@router.get("/contributions", response_model=ContributionsListResponse)
+@router.get("/get-contributions", response_model=ContributionsListResponse)
 def get_contributions(
     campaign_id: Optional[str] = None, 
     contributor: Optional[str] = None, 
