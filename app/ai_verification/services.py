@@ -380,23 +380,29 @@ class AIVerificationSystem:
                     {
                         "type": "text",
                         "text": (
-                            "Compare the following image with the campaign description and provide a similarity score between 0 and 100. "
-                            f"Campaign Description: {campaign.description}"
-                        ),
+                            "You are an expert evaluator tasked with determining how well an image aligns with the campaign's objectives. "
+                            "Evaluate the image using the following information:\n\n"
+                            f"Campaign Description: {campaign.description}\n\n"
+                            f"Campaign Requirements: {campaign.data_requirements}\n\n"
+                            "Please provide a numeric similarity score between 20 and 100, where 100 indicates perfect alignment and 20 indicates no alignment. "
+                            "Output only the numeric score."
+                        )
                     },
                     {
                         "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
                     },
                 ],
             }
         ]
+
         try:
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=messages,
             )
-            response_content = response.choices[0].message['content']
+            response_content = response.choices[0].message.content
+            self.logger.info(f"Response content: {response_content}")
             score = float(response_content.strip())
             self.logger.info(f"Image verification score: {score}")
             return score
