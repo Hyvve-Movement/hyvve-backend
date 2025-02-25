@@ -356,6 +356,7 @@ class AIVerificationSystem:
         self.logger.info(f"Raw score: {raw_score}, Fairness factor: {fairness_factor}, Adjusted score: {adjusted_score}")
 
         await self.store_in_cache(wallet_address, file_hash, adjusted_score)
+        
         return adjusted_score
 
     def encode_image(self, image_path: str) -> str:
