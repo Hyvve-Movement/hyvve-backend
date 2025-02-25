@@ -38,8 +38,6 @@ class Contribution(Base):
     campaign_id = Column(String, ForeignKey("campaigns.id"), nullable=False)
     contributor = Column(String, index=True)
     data_url = Column(String)
-    data_hash = Column(String)
-    signature = Column(String)
     transaction_hash = Column(String)
     ai_verification_score = Column(Float, nullable=True)
     reputation_score = Column(Float, nullable=True)
