@@ -22,10 +22,9 @@ class SimilarityScore(BaseModel):
 
 
 class AIVerificationSystem:
-    def __init__(self, openai_api_key: str, redis_pool: redis.Redis):
+    def __init__(self, openai_api_key: str):
         self.openai_api_key = openai_api_key
         openai.api_key = openai_api_key
-        self.redis_pool = redis_pool
         
         # Set up logging
         self.logger = logging.getLogger(__name__)
