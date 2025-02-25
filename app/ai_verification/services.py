@@ -11,7 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from docx import Document
 import os
 import subprocess
-import redis.asyncio as redis
+# import redis.asyncio as redis
 
 from app.campaigns.models import Campaign
 from app.ai_verification.llm import get_long_context_llm
