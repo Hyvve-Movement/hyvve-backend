@@ -31,8 +31,6 @@ class ContributionCreate(BaseModel):
     campaign_id: str
     contributor: str
     data_url: str
-    data_hash: str
-    signature: str
     transaction_hash: str
     quality_score: int
     ai_verification_score: Optional[float] = None  # New field for AI verification score
