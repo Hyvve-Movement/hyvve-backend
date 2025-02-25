@@ -23,6 +23,7 @@ class CampaignResponse(CampaignCreate):
     campaign_id: str
     is_active: bool
     current_contributions: int
+    unique_contributions_count: int
     created_at: datetime
 
 class ContributionCreate(BaseModel):
@@ -50,6 +51,7 @@ class CampaignsActiveResponse(BaseModel):
     total_budget: float
     max_data_count: int
     current_contributions: int
+    unique_contributions_count: int
     title: str
     description: str
     is_active: bool
@@ -58,3 +60,8 @@ class CampaignsActiveResponse(BaseModel):
 class ContributionsListResponse(BaseModel):
     contributions: List[ContributionResponse]
     unique_contributions_count: int
+
+
+class WalletCampaignsResponse(BaseModel):
+    created: List[CampaignResponse]
+    contributed: List[CampaignResponse]

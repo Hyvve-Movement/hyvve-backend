@@ -4,7 +4,7 @@ from sqlalchemy import func
 from typing import List, Optional
 
 from app.campaigns.models import Campaign, Contribution
-from app.campaigns.schemas import CampaignCreate, CampaignResponse, ContributionCreate, ContributionResponse, CampaignsActiveResponse, ContributionsListResponse
+from app.campaigns.schemas import CampaignCreate, CampaignResponse, ContributionCreate, ContributionResponse, CampaignsActiveResponse, ContributionsListResponse, WalletCampaignsResponse
 from app.campaigns.services import serialize_campaign
 from app.core.database import get_session
 
@@ -155,44 +155,53 @@ def get_contributions(
     )
 
 
-# Endpoint: Campaigns Created by a Wallet
-@router.get("/wallet/{wallet_address}/campaigns/created", response_model=List[CampaignResponse])
-def get_campaigns_created(wallet_address: str, db: Session = Depends(get_session)):
+@router.get("/wallet/{wallet_address}/campaign-details", response_model=WalletCampaignsResponse, summary="Get campaigns created and contributed to by a wallet")
+def get_wallet_campaigns_details(wallet_address: str, db: Session = Depends(get_session)):
     """
-    Returns all campaigns created by the wallet specified by wallet_address.
-    Assumes the Campaign model has a 'creator_wallet_address' field.
+    Returns all campaigns related to the given wallet address. 
+    This includes:
+      - Campaigns created by the wallet (where the wallet is the creator)
+      - Campaigns the wallet has contributed to (where the wallet appears in contributions)
+    Each campaign is serialized using serialize_campaign and includes the unique_contributions_count.
     """
-    campaigns = (
+    # Campaigns created by the wallet
+    created_campaigns = (
         db.query(Campaign)
         .filter(Campaign.creator_wallet_address == wallet_address)
         .options(joinedload(Campaign.contributions))
         .order_by(Campaign.created_at.desc())
         .all()
     )
-    if not campaigns:
-        raise HTTPException(status_code=404, detail="No campaigns found for this wallet.")
-    
-    # Assuming 'serialize_campaign' is used to format the response, you can also use CampaignResponse directly.
-    return [
-        serialize_campaign(campaign, len(campaign.contributions))  # You can adjust this to match your model
-        for campaign in campaigns
-    ]
+    created_serialized = []
+    for campaign in created_campaigns:
+        contributions_count = len(campaign.contributions)
+        unique_count = db.query(func.count(func.distinct(Contribution.contributor)))\
+                         .filter(Contribution.campaign_id == campaign.id).scalar()
+        serialized = serialize_campaign(campaign, contributions_count)
+        serialized["unique_contributions_count"] = unique_count
+        created_serialized.append(serialized)
 
-
-# Endpoint: Campaigns Contributed to by a Wallet
-@router.get("/wallet/{wallet_address}/campaigns/contributed", response_model=List[CampaignResponse])
-def get_campaigns_contributed(wallet_address: str, db: Session = Depends(get_session)):
-    """
-    Returns all campaigns to which the wallet (contributor) has contributed.
-    Retrieves contributions made by the wallet, extracts unique campaign IDs,
-    and then returns the corresponding campaigns.
-    """
+    # Campaigns contributed to by the wallet
     contributions = db.query(Contribution).filter(Contribution.contributor == wallet_address).all()
     campaign_ids = list({contribution.campaign_id for contribution in contributions})
-    if not campaign_ids:
-        raise HTTPException(status_code=404, detail="No contributions found for this wallet.")
-    campaigns = db.query(Campaign).filter(Campaign.id.in_(campaign_ids)).all()
-    return campaigns
+    contributed_serialized = []
+    if campaign_ids:
+        contributed_campaigns = db.query(Campaign).filter(Campaign.id.in_(campaign_ids)).all()
+        for campaign in contributed_campaigns:
+            contributions_count = len(campaign.contributions)
+            unique_count = db.query(func.count(func.distinct(Contribution.contributor)))\
+                             .filter(Contribution.campaign_id == campaign.id).scalar()
+            serialized = serialize_campaign(campaign, contributions_count)
+            serialized["unique_contributions_count"] = unique_count
+            contributed_serialized.append(serialized)
+    
+    return {
+        "created": created_serialized,
+        "contributed": contributed_serialized
+    }
+
+
+
 
 
 @router.get("/analytics/campaign/{onchain_campaign_id}")
