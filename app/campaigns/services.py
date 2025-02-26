@@ -60,6 +60,26 @@ def track_campaign_activity_overall(campaign_id: str, db: Session, contribution:
         db.commit()  # Save the updated activity level for the campaign
 
 
+# def track_contribution_activity(campaign_id: str, db: Session, contribution: Contribution):
+#     """
+#     Track activity for the given campaign at the individual contribution level.
+#     Activity level is determined based on contribution data, without affecting the overall campaign activity.
+#     """
+#     activity_level = calculate_activity_level(contribution)
+
+#     # Create a new Activity entry for the campaign (individual contribution activity)
+#     new_activity = Activity(
+#         campaign_id=campaign_id,
+#         timestamp=datetime.utcnow(),
+#         activity_level=activity_level
+#     )
+
+#     # Save the new activity to the database
+#     db.add(new_activity)
+#     db.commit()
+#     db.refresh(new_activity)
+
+
 def track_contribution_activity(campaign_id: str, db: Session, contribution: Contribution):
     """
     Track activity for the given campaign at the individual contribution level.
@@ -67,9 +87,10 @@ def track_contribution_activity(campaign_id: str, db: Session, contribution: Con
     """
     activity_level = calculate_activity_level(contribution)
 
-    # Create a new Activity entry for the campaign (individual contribution activity)
+    # Create a new Activity entry, linking it to the specific contribution via contribution_id
     new_activity = Activity(
         campaign_id=campaign_id,
+        contribution_id=contribution.contribution_id,
         timestamp=datetime.utcnow(),
         activity_level=activity_level
     )
@@ -78,6 +99,7 @@ def track_contribution_activity(campaign_id: str, db: Session, contribution: Con
     db.add(new_activity)
     db.commit()
     db.refresh(new_activity)
+
 
 
 def calculate_activity_level(contribution: Contribution) -> float:

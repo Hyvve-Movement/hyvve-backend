@@ -138,29 +138,65 @@ def get_campaign(onchain_campaign_id: str, db: Session = Depends(get_session)):
 
 
 
+# @router.post("/submit-contributions", response_model=ContributionResponse)
+# def submit_contribution(contribution: ContributionCreate, db: Session = Depends(get_session)):
+#     # Look up the campaign by its onchain_campaign_id
+#     campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == contribution.campaign_id).first()
+#     if not campaign:
+#         raise HTTPException(status_code=404, detail="Campaign not found for given campaign_id")
+    
+#     # Replace the submitted campaign_id (onchain_campaign_id) with the internal campaign id
+#     contribution_data = contribution.dict()
+#     contribution_data["campaign_id"] = campaign.id
+    
+#     # Create and insert the contribution
+#     db_contribution = Contribution(**contribution_data)
+#     db.add(db_contribution)
+#     db.commit()
+#     db.refresh(db_contribution)
+
+#     # Track individual activity
+#     track_contribution_activity(campaign.id, db, db_contribution)
+
+#     # Track overall campaign activity
+#     track_campaign_activity_overall(campaign.id, db, db_contribution)
+#     return db_contribution
+
+
 @router.post("/submit-contributions", response_model=ContributionResponse)
 def submit_contribution(contribution: ContributionCreate, db: Session = Depends(get_session)):
-    # Look up the campaign by its onchain_campaign_id
-    campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == contribution.campaign_id).first()
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found for given campaign_id")
-    
-    # Replace the submitted campaign_id (onchain_campaign_id) with the internal campaign id
-    contribution_data = contribution.dict()
-    contribution_data["campaign_id"] = campaign.id
-    
-    # Create and insert the contribution
-    db_contribution = Contribution(**contribution_data)
-    db.add(db_contribution)
-    db.commit()
-    db.refresh(db_contribution)
+    try:
+        # Look up the campaign by its onchain_campaign_id
+        campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == contribution.campaign_id).first()
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found for given campaign_id")
+        
+        # Replace the submitted campaign_id (onchain_campaign_id) with the internal campaign id
+        contribution_data = contribution.dict()
+        contribution_data["campaign_id"] = campaign.id
+        
+        # Create and insert the contribution
+        db_contribution = Contribution(**contribution_data)
+        db.add(db_contribution)
+        db.commit()
+        db.refresh(db_contribution)
 
-    # Track individual activity
-    track_contribution_activity(campaign.id, db, db_contribution)
+        # Track individual activity
+        track_contribution_activity(campaign.id, db, db_contribution)
 
-    # Track overall campaign activity
-    track_campaign_activity_overall(campaign.id, db, db_contribution)
-    return db_contribution
+        # Track overall campaign activity
+        track_campaign_activity_overall(campaign.id, db, db_contribution)
+        
+        # Prepare the response by mapping the quality score using our helper function.
+        mapped_quality = get_quality_score_category(db_contribution.quality_score)
+        
+        # Remove SQLAlchemy's internal state from the __dict__
+        contrib_data = {k: v for k, v in db_contribution.__dict__.items() if k != "_sa_instance_state"}
+        contrib_data["quality_score"] = mapped_quality  # Override the quality_score with the category
+        
+        return ContributionResponse(**contrib_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to submit contribution: {str(e)}")
 
 
 
@@ -642,17 +678,19 @@ def get_campaign_activity(onchain_campaign_id: str, db: Session = Depends(get_se
     return {"campaign_id": campaign.id, "overall_activity_level": campaign.current_activity_level}
 
 
-@router.get("/analytics/contribution/{wallet_address}/activity")
-def get_contribution_activity(wallet_address: str, db: Session = Depends(get_session)):
+
+@router.get("/analytics/contribution/{contribution_id}/activity")
+def get_contribution_activity(contribution_id: str, db: Session = Depends(get_session)):
     """
-    Returns the activity level of a specific contribution identified by its wallet_address.
+    Returns the activity level of a specific contribution identified by its contribution_id.
     """
-    contribution = db.query(Contribution).filter(Contribution.contributor == wallet_address).first()
+    # Retrieve the contribution by its contribution_id
+    contribution = db.query(Contribution).filter(Contribution.contribution_id == contribution_id).first()
     if not contribution:
         raise HTTPException(status_code=404, detail="Contribution not found")
-
-    # Find the related campaign activity
-    activity = db.query(Activity).filter(Activity.campaign_id == contribution.campaign_id, Activity.timestamp == contribution.created_at).first()
+    
+    # Retrieve the associated activity record using the contribution_id
+    activity = db.query(Activity).filter(Activity.contribution_id == contribution.contribution_id).first()
     
     if not activity:
         raise HTTPException(status_code=404, detail="Activity for this contribution not found")
@@ -661,4 +699,46 @@ def get_contribution_activity(wallet_address: str, db: Session = Depends(get_ses
         "contribution_id": contribution.contribution_id,
         "activity_level": activity.activity_level,
         "timestamp": activity.timestamp
+    }
+
+
+
+@router.get("/analytics/contributor/{wallet_address}")
+def get_contributor_analytics(wallet_address: str, db: Session = Depends(get_session)):
+    """
+    Returns analytics for a given contributor (by wallet address), including:
+      - average quality score category across campaigns (calculated from the average raw quality score)
+      - average AI verification score across contributions
+      - unique contributions (distinct campaign IDs contributed to)
+      - total contributions (count of all contributions)
+      - average reputation score across contributions
+    """
+    # Query all contributions for this contributor
+    contributions = db.query(Contribution).filter(Contribution.contributor == wallet_address).all()
+    
+    if not contributions:
+        raise HTTPException(status_code=404, detail="No contributions found for this contributor")
+    
+    total_contributions = len(contributions)
+    unique_contributions = len({c.campaign_id for c in contributions})
+    
+    # Average quality score
+    quality_scores = [c.quality_score for c in contributions if c.quality_score is not None]
+    average_quality = sum(quality_scores) / len(quality_scores) if quality_scores else 0
+    overall_quality_category = get_quality_score_category(average_quality) if quality_scores else "No Data"
+    
+    # Average AI verification score
+    ai_scores = [c.ai_verification_score for c in contributions if c.ai_verification_score is not None]
+    average_ai = sum(ai_scores) / len(ai_scores) if ai_scores else 0
+
+    # Average reputation score
+    rep_scores = [c.reputation_score for c in contributions if c.reputation_score is not None]
+    average_reputation = sum(rep_scores) / len(rep_scores) if rep_scores else 0
+
+    return {
+        "average_quality_category": overall_quality_category,
+        "average_ai_verification_score": average_ai,
+        "unique_contributions": unique_contributions,
+        "total_contributions": total_contributions,
+        "average_reputation_score": average_reputation
     }

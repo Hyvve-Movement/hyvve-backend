@@ -37,7 +37,7 @@ class Campaign(Base):
 class Contribution(Base):
     __tablename__ = 'contributions'
 
-    contribution_id = Column(String, primary_key=True, index=True)
+    contribution_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     campaign_id = Column(String, ForeignKey("campaigns.id"), nullable=False)
     contributor = Column(String, index=True)
     data_url = Column(String)
@@ -50,13 +50,16 @@ class Contribution(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     campaign = relationship("Campaign", back_populates="contributions")
+    activities = relationship("Activity", back_populates="contribution")
 
 
 class Activity(Base):
     __tablename__ = 'activity'
     id = Column(Integer, primary_key=True, index=True)
     campaign_id = Column(String, ForeignKey("campaigns.id"), nullable=False)  # Foreign key to track activity by campaign
+    contribution_id = Column(String, ForeignKey("contributions.contribution_id"), nullable=True)
     timestamp = Column(DateTime, index=True)
     activity_level = Column(Float)  # Activity level (0-100)
     
     campaign = relationship("Campaign", back_populates="activities")
+    contribution = relationship("Contribution", back_populates="activities")
