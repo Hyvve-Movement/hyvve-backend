@@ -12,6 +12,20 @@ from app.core.database import get_session
 
 router = APIRouter()
 
+# @router.delete("/campaigns/{campaign_id}", summary="Delete a campaign by its ID", response_model=dict)
+# def delete_campaign(campaign_id: str, db: Session = Depends(get_session)):
+#     """
+#     Delete the campaign with the given campaign_id.
+#     """
+#     campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+#     if not campaign:
+#         raise HTTPException(status_code=404, detail="Campaign not found")
+    
+#     db.delete(campaign)
+#     db.commit()
+#     return {"detail": "Campaign deleted successfully"}
+
+
 @router.get("/all", response_model=List[CampaignResponse])
 def get_all_campaigns(db: Session = Depends(get_session)):
     db_campaigns = (
@@ -122,11 +136,22 @@ def get_campaign(onchain_campaign_id: str, db: Session = Depends(get_session)):
 
 @router.post("/submit-contributions", response_model=ContributionResponse)
 def submit_contribution(contribution: ContributionCreate, db: Session = Depends(get_session)):
-    db_contribution = Contribution(**contribution.dict())
+    # Look up the campaign by its onchain_campaign_id
+    campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == contribution.campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found for given campaign_id")
+    
+    # Replace the submitted campaign_id (onchain_campaign_id) with the internal campaign id
+    contribution_data = contribution.dict()
+    contribution_data["campaign_id"] = campaign.id
+    
+    # Create and insert the contribution
+    db_contribution = Contribution(**contribution_data)
     db.add(db_contribution)
     db.commit()
     db.refresh(db_contribution)
     return db_contribution
+
 
 
 @router.get("/get-contributions", response_model=ContributionsListResponse)
