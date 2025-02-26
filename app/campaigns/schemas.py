@@ -37,10 +37,18 @@ class ContributionCreate(BaseModel):
     reputation_score: Optional[float] = None
 
 
-class ContributionResponse(ContributionCreate):
+class ContributionResponse(BaseModel):
+    contribution_id: str
+    campaign_id: str
+    contributor: str
+    data_url: str
+    transaction_hash: str
+    ai_verification_score: Optional[float] = None
+    reputation_score: Optional[float] = None
     is_verified: bool
     reward_claimed: bool
     created_at: datetime
+    quality_score: str
 
 class CampaignsActiveResponse(BaseModel):
     campaign_id: str
@@ -64,3 +72,9 @@ class ContributionsListResponse(BaseModel):
 class WalletCampaignsResponse(BaseModel):
     created: List[CampaignResponse]
     contributed: List[CampaignResponse]
+
+
+class WeeklyAnalyticsResponse(BaseModel):
+    date: str
+    submissions: int
+    avg_quality_score: float

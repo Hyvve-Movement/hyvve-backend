@@ -28,7 +28,10 @@ class Campaign(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    current_activity_level = Column(Float, default=0.0)
+
     contributions = relationship("Contribution", back_populates="campaign")
+    activities = relationship("Activity", back_populates="campaign")
 
 
 class Contribution(Base):
@@ -47,3 +50,13 @@ class Contribution(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     campaign = relationship("Campaign", back_populates="contributions")
+
+
+class Activity(Base):
+    __tablename__ = 'activity'
+    id = Column(Integer, primary_key=True, index=True)
+    campaign_id = Column(String, ForeignKey("campaigns.id"), nullable=False)  # Foreign key to track activity by campaign
+    timestamp = Column(DateTime, index=True)
+    activity_level = Column(Float)  # Activity level (0-100)
+    
+    campaign = relationship("Campaign", back_populates="activities")

@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy import AsyncAdaptedQueuePool
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Session
@@ -11,7 +12,8 @@ from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
 
-
+logging.basicConfig()
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     pool_size=1000,  # Adjust based on your app's concurrency requirements

@@ -1,14 +1,18 @@
+import logging
 from fastapi import FastAPI, HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
-from typing import List, Optional
+from typing import List, Optional, Dict
+from datetime import datetime, timedelta
 
-from app.campaigns.models import Campaign, Contribution
-from app.campaigns.schemas import CampaignCreate, CampaignResponse, ContributionCreate, ContributionResponse, CampaignsActiveResponse, ContributionsListResponse, WalletCampaignsResponse
-from app.campaigns.services import serialize_campaign
+from app.campaigns.models import Campaign, Contribution, Activity
+from app.campaigns.schemas import CampaignCreate, CampaignResponse, ContributionCreate, ContributionResponse, CampaignsActiveResponse, ContributionsListResponse, WalletCampaignsResponse, WeeklyAnalyticsResponse
+from app.campaigns.services import serialize_campaign, track_campaign_activity_overall, track_contribution_activity, get_quality_score_category
 from app.core.database import get_session
 
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -150,22 +154,48 @@ def submit_contribution(contribution: ContributionCreate, db: Session = Depends(
     db.add(db_contribution)
     db.commit()
     db.refresh(db_contribution)
+
+    # Track individual activity
+    track_contribution_activity(campaign.id, db, db_contribution)
+
+    # Track overall campaign activity
+    track_campaign_activity_overall(campaign.id, db, db_contribution)
     return db_contribution
 
 
 
-@router.get("/get-contributions", response_model=ContributionsListResponse)
+@router.get(
+    "/get-contributions/{onchain_campaign_id}", 
+    response_model=ContributionsListResponse
+)
 def get_contributions(
-    campaign_id: Optional[str] = None, 
+    onchain_campaign_id: Optional[str] = None, 
     contributor: Optional[str] = None, 
     db: Session = Depends(get_session)
 ):
+    # Log the incoming request parameters
+    logger.info(f"Received get-contributions request. Parameters: onchain_campaign_id={onchain_campaign_id}, contributor={contributor}")
+
+    # Find the campaign using onchain_campaign_id
+    campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
+    logger.info(f"Campaign: {campaign}")
+    if campaign is None:
+        logger.warning(f"Campaign with onchain_campaign_id={onchain_campaign_id} not found.")
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    # Log the found campaign
+    logger.info(f"Found campaign: {campaign.title} (ID: {campaign.id})")
+
     query = db.query(Contribution)
 
-    if campaign_id:
-        query = query.filter(Contribution.campaign_id == campaign_id)
+    # Filter by campaign.id
+    if campaign:
+        query = query.filter(Contribution.campaign_id == campaign.id)
+        logger.info(f"Filtering contributions by campaign ID: {campaign.id}")
+    
     if contributor:
         query = query.filter(Contribution.contributor == contributor)
+        logger.info(f"Filtering contributions by contributor: {contributor}")
     
     query = query.order_by(Contribution.created_at.desc())
     contributions = query.all()
@@ -174,10 +204,28 @@ def get_contributions(
     unique_contributors = {contrib.contributor for contrib in contributions}
     unique_count = len(unique_contributors)
 
+    logger.info(f"Found {len(contributions)} contributions. Unique contributors: {unique_count}")
+
+    # Map the quality scores for each contribution
+    contributions_with_mapped_quality = []
+    for contrib in contributions:
+        # Map the quality score to a category (as a string)
+        mapped_quality = get_quality_score_category(contrib.quality_score)
+        # Make a copy of the contribution's dict and remove the quality_score key
+        contrib_data = contrib.__dict__.copy()
+        contrib_data.pop("_sa_instance_state", None)  # Remove SQLAlchemy internal state
+        contrib_data["quality_score"] = mapped_quality  # Override the quality_score with mapped quality
+        contrib_response = ContributionResponse(**contrib_data)
+        contributions_with_mapped_quality.append(contrib_response)
+
+    logger.info(f"Mapped quality scores for {len(contributions_with_mapped_quality)} contributions")
+
     return ContributionsListResponse(
-        contributions=[ContributionResponse(**contrib.__dict__) for contrib in contributions],
+        contributions=contributions_with_mapped_quality,
         unique_contributions_count=unique_count
     )
+
+
 
 
 @router.get("/wallet/{wallet_address}/campaign-details", response_model=WalletCampaignsResponse, summary="Get campaigns created and contributed to by a wallet")
@@ -224,8 +272,6 @@ def get_wallet_campaigns_details(wallet_address: str, db: Session = Depends(get_
         "created": created_serialized,
         "contributed": contributed_serialized
     }
-
-
 
 
 
@@ -296,11 +342,74 @@ def get_campaign_analytics(onchain_campaign_id: str, db: Session = Depends(get_s
     return {
         "total_contributions": total_contribs,
         "average_cost_per_submission": avg_cost,
-        "peak_activity": {"peak_hours": peak_hours, "max_submissions": max_count},
+        "peak_activity": {
+            # "peak_hours": peak_hours,
+            "max_submissions": max_count
+        },
         "top_contributors": top_contributors,
         "unique_contributor_count": unique_contributors,
         "total_rewards_paid": total_rewards_paid,
     }
+
+
+@router.get("/analytics/campaign/{onchain_campaign_id}/weekly")
+def get_weekly_campaign_analytics(onchain_campaign_id: str, db: Session = Depends(get_session)):
+    """
+    Returns weekly analytics for a given campaign identified by onchain_campaign_id, including:
+      - Total submissions for each day of the week
+      - Average quality score for submissions on each day of the week
+    """
+    # Get the campaign from the database
+    campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    # Get today's date and calculate the start of the week (Monday)
+    today = datetime.now()
+    start_of_week = today - timedelta(days=today.weekday())  # This will give us Monday
+    end_of_week = start_of_week + timedelta(days=6)  # This gives us Sunday of the current week
+
+    # Query to get all submissions within the current week
+    result = (
+        db.query(
+            func.extract('dow', Contribution.created_at).label('day_of_week'),  # Day of the week (0=Monday, 6=Sunday)
+            func.count(Contribution.contribution_id).label('submissions'),
+            func.avg(Contribution.quality_score).label('avg_quality_score')
+        )
+        .filter(
+            Contribution.campaign_id == campaign.id,
+            Contribution.created_at >= start_of_week,
+            Contribution.created_at <= end_of_week
+        )
+        .group_by(func.extract('dow', Contribution.created_at))
+        .order_by(func.extract('dow', Contribution.created_at))
+        .all()
+    )
+
+    # Create a list of dates for each day of the week (starting from Monday)
+    dates = [(start_of_week + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7)]  # Get dates from Monday to Sunday
+
+    # Create a dictionary with all days initialized with 0 submissions and quality score 0
+    weekly_data = {date: {'submissions': 0, 'avg_quality_score': 0} for date in dates}
+
+    # Map the query result to the expected response format
+    for day, submissions, avg_quality_score in result:
+        adjusted_day = int(day)  # day is in range 0 (Monday) to 6 (Sunday)
+        specific_date = dates[adjusted_day]  # Get the corresponding date
+        weekly_data[specific_date] = {
+            'submissions': submissions,
+            'avg_quality_score': avg_quality_score or 0,  # Default to 0 if no data
+        }
+
+    # Return the weekly data in the correct order
+    return [
+        {
+            'date': date,
+            'submissions': data['submissions'],
+            'avg_quality_score': data['avg_quality_score']
+        } 
+        for date, data in weekly_data.items()
+    ]
 
 
 @router.get("/analytics/wallet/{wallet_address}")
@@ -458,3 +567,98 @@ def get_top_campaign_creators(db: Session = Depends(get_session)):
     return [dict(r._mapping) for r in results]
 
 
+
+
+@router.post("/calculate-peak-activity")
+def calculate_peak_activity_hours(onchain_campaign_id: str, db: Session = Depends(get_session)):
+    # Get the current date (today's date)
+    today = datetime.utcnow().date()  # Use UTC to ensure the current date is consistent across time zones
+
+    # Generate the 6-hour time intervals for the current day
+    timeframes = []
+    for i in range(0, 24, 6):
+        start_time = datetime.combine(today, datetime.min.time()) + timedelta(hours=i)
+        end_time = start_time + timedelta(hours=6)
+        timeframes.append({
+            "start_time": start_time,
+            "end_time": end_time
+        })
+
+    peak_activity_by_campaign = {}
+
+    # Loop over each timeframe and calculate activity for the specified campaign
+    for timeframe in timeframes:
+        start_time = timeframe["start_time"]
+        end_time = timeframe["end_time"]
+
+        # Query to get the campaign by onchain_campaign_id
+        campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found for the given onchain_campaign_id")
+
+        # Get the campaign ID
+        campaign_id = campaign.id
+
+        # Query to fetch activities within the time range for the specific campaign
+        activity_data = (
+            db.query(func.avg(Activity.activity_level).label("avg_activity"))
+            .filter(
+                Activity.timestamp >= start_time,
+                Activity.timestamp < end_time,  # Ensure it's strictly within the time range
+                Activity.campaign_id == campaign_id  # Filter by campaign ID
+            )
+            .scalar()
+        )
+
+        # Store the activity level for the specific campaign and timeframe
+        if activity_data is not None:
+            if campaign_id not in peak_activity_by_campaign:
+                peak_activity_by_campaign[campaign_id] = {}
+
+            peak_activity_by_campaign[campaign_id][f"{start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"] = activity_data
+        else:
+            # If no activity data is found for this timeframe, set it to 0
+            if campaign_id not in peak_activity_by_campaign:
+                peak_activity_by_campaign[campaign_id] = {}
+
+            peak_activity_by_campaign[campaign_id][f"{start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"] = 0
+
+    return peak_activity_by_campaign
+
+
+@router.get("/analytics/campaign/{onchain_campaign_id}/activity")
+def get_campaign_activity(onchain_campaign_id: str, db: Session = Depends(get_session)):
+    """
+    Returns the overall activity level for the given campaign identified by onchain_campaign_id.
+    """
+    campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    # Retrieve the current overall activity level for the campaign
+    if campaign.current_activity_level is None:
+        raise HTTPException(status_code=404, detail="No activity recorded for this campaign yet")
+
+    return {"campaign_id": campaign.id, "overall_activity_level": campaign.current_activity_level}
+
+
+@router.get("/analytics/contribution/{wallet_address}/activity")
+def get_contribution_activity(wallet_address: str, db: Session = Depends(get_session)):
+    """
+    Returns the activity level of a specific contribution identified by its wallet_address.
+    """
+    contribution = db.query(Contribution).filter(Contribution.contributor == wallet_address).first()
+    if not contribution:
+        raise HTTPException(status_code=404, detail="Contribution not found")
+
+    # Find the related campaign activity
+    activity = db.query(Activity).filter(Activity.campaign_id == contribution.campaign_id, Activity.timestamp == contribution.created_at).first()
+    
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity for this contribution not found")
+
+    return {
+        "contribution_id": contribution.contribution_id,
+        "activity_level": activity.activity_level,
+        "timestamp": activity.timestamp
+    }
