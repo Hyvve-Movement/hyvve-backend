@@ -14,7 +14,7 @@ class CampaignCreate(BaseModel):
     total_budget: float
     min_data_count: int
     max_data_count: int
-    expiration: int  # Unix timestamp
+    expiration: int 
     metadata_uri: str
     transaction_hash: str
     platform_fee: float
@@ -32,9 +32,10 @@ class ContributionCreate(BaseModel):
     contributor: str
     data_url: str
     transaction_hash: str
-    quality_score: int
-    ai_verification_score: Optional[float] = None  # New field for AI verification score
-    reputation_score: Optional[float] = None         # New field for contributor's reputation
+    quality_score: float 
+    ai_verification_score: Optional[float] = None
+    reputation_score: Optional[float] = None
+
 
 class ContributionResponse(ContributionCreate):
     is_verified: bool
