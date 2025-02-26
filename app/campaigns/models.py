@@ -38,6 +38,7 @@ class Contribution(Base):
     __tablename__ = 'contributions'
 
     contribution_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    onchain_contribution_id = Column(String, index=True, nullable=True)
     campaign_id = Column(String, ForeignKey("campaigns.id"), nullable=False)
     contributor = Column(String, index=True)
     data_url = Column(String)

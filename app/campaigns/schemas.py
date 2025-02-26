@@ -27,7 +27,7 @@ class CampaignResponse(CampaignCreate):
     created_at: datetime
 
 class ContributionCreate(BaseModel):
-    # contribution_id: str
+    onchain_contribution_id: str
     campaign_id: str
     contributor: str
     data_url: str
@@ -39,6 +39,7 @@ class ContributionCreate(BaseModel):
 
 class ContributionResponse(BaseModel):
     contribution_id: str
+    onchain_contribution_id: str
     campaign_id: str
     contributor: str
     data_url: str
