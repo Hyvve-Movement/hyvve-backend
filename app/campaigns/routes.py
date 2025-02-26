@@ -112,6 +112,7 @@ def get_active_campaigns(db: Session = Depends(get_session)):
             "onchain_campaign_id": str(campaign.onchain_campaign_id),
             "creator_wallet_address": str(campaign.creator_wallet_address),
             "unit_price": campaign.unit_price,
+            "campaign_type": campaign.campaign_type,
             "total_budget": float(campaign.total_budget),
             "max_data_count": int(campaign.max_data_count),
             "current_contributions": len(campaign.contributions),
@@ -137,30 +138,6 @@ def get_campaign(onchain_campaign_id: str, db: Session = Depends(get_session)):
     return serialized
 
 
-
-# @router.post("/submit-contributions", response_model=ContributionResponse)
-# def submit_contribution(contribution: ContributionCreate, db: Session = Depends(get_session)):
-#     # Look up the campaign by its onchain_campaign_id
-#     campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == contribution.campaign_id).first()
-#     if not campaign:
-#         raise HTTPException(status_code=404, detail="Campaign not found for given campaign_id")
-    
-#     # Replace the submitted campaign_id (onchain_campaign_id) with the internal campaign id
-#     contribution_data = contribution.dict()
-#     contribution_data["campaign_id"] = campaign.id
-    
-#     # Create and insert the contribution
-#     db_contribution = Contribution(**contribution_data)
-#     db.add(db_contribution)
-#     db.commit()
-#     db.refresh(db_contribution)
-
-#     # Track individual activity
-#     track_contribution_activity(campaign.id, db, db_contribution)
-
-#     # Track overall campaign activity
-#     track_campaign_activity_overall(campaign.id, db, db_contribution)
-#     return db_contribution
 
 
 @router.post("/submit-contributions", response_model=ContributionResponse)
@@ -199,67 +176,6 @@ def submit_contribution(contribution: ContributionCreate, db: Session = Depends(
         raise HTTPException(status_code=500, detail=f"Failed to submit contribution: {str(e)}")
 
 
-
-# @router.get(
-#     "/get-contributions/{onchain_campaign_id}", 
-#     response_model=ContributionsListResponse
-# )
-# def get_contributions(
-#     onchain_campaign_id: Optional[str] = None, 
-#     contributor: Optional[str] = None, 
-#     db: Session = Depends(get_session)
-# ):
-#     # Log the incoming request parameters
-#     logger.info(f"Received get-contributions request. Parameters: onchain_campaign_id={onchain_campaign_id}, contributor={contributor}")
-
-#     # Find the campaign using onchain_campaign_id
-#     campaign = db.query(Campaign).filter(Campaign.onchain_campaign_id == onchain_campaign_id).first()
-#     logger.info(f"Campaign: {campaign}")
-#     if campaign is None:
-#         logger.warning(f"Campaign with onchain_campaign_id={onchain_campaign_id} not found.")
-#         raise HTTPException(status_code=404, detail="Campaign not found")
-
-#     # Log the found campaign
-#     logger.info(f"Found campaign: {campaign.title} (ID: {campaign.id})")
-
-#     query = db.query(Contribution)
-
-#     # Filter by campaign.id
-#     if campaign:
-#         query = query.filter(Contribution.campaign_id == campaign.id)
-#         logger.info(f"Filtering contributions by campaign ID: {campaign.id}")
-    
-#     if contributor:
-#         query = query.filter(Contribution.contributor == contributor)
-#         logger.info(f"Filtering contributions by contributor: {contributor}")
-    
-#     query = query.order_by(Contribution.created_at.desc())
-#     contributions = query.all()
-
-#     # Calculate unique contributions (based on unique contributor)
-#     unique_contributors = {contrib.contributor for contrib in contributions}
-#     unique_count = len(unique_contributors)
-
-#     logger.info(f"Found {len(contributions)} contributions. Unique contributors: {unique_count}")
-
-#     # Map the quality scores for each contribution
-#     contributions_with_mapped_quality = []
-#     for contrib in contributions:
-#         # Map the quality score to a category (as a string)
-#         mapped_quality = get_quality_score_category(contrib.quality_score)
-#         # Make a copy of the contribution's dict and remove the quality_score key
-#         contrib_data = contrib.__dict__.copy()
-#         contrib_data.pop("_sa_instance_state", None)  # Remove SQLAlchemy internal state
-#         contrib_data["quality_score"] = mapped_quality  # Override the quality_score with mapped quality
-#         contrib_response = ContributionResponse(**contrib_data)
-#         contributions_with_mapped_quality.append(contrib_response)
-
-#     logger.info(f"Mapped quality scores for {len(contributions_with_mapped_quality)} contributions")
-
-#     return ContributionsListResponse(
-#         contributions=contributions_with_mapped_quality,
-#         unique_contributions_count=unique_count
-#     )
 
 
 @router.get("/get-contributions/{onchain_campaign_id}", response_model=ContributionsListResponse)

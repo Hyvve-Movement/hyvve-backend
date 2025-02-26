@@ -55,6 +55,7 @@ class CampaignsActiveResponse(BaseModel):
     campaign_id: str
     onchain_campaign_id: str
     creator_wallet_address: str
+    campaign_type: str
     unit_price: float
     total_budget: float
     max_data_count: int
