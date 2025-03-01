@@ -36,35 +36,29 @@ def mark_expired_campaigns_inactive():
     finally:
         db.close()
 
+
+@celery_app.task
+def renew_subscriptions():
+    try:
+        headers = {
+            'X-API-Key': API_KEY,
+            'Content-Type': 'application/json'
+        }
+        response = requests.post(url=BASE_URL, headers=headers)
+        response.raise_for_status()  # Check for successful response
+        print("process renewed successfully")
+    except requests.exceptions.RequestException as e:
+        print(f"Error renewing subscriptions: {e}")
+
+
 # Schedule the task to run every 30 minutes.
 celery_app.conf.beat_schedule = {
     'mark-expired-campaigns-inactive-every-30-minutes': {
         'task': 'tasks.mark_expired_campaigns_inactive',
         'schedule': 30 * 60,  # Every 30 minutes (in seconds)
     },
+    'renew-subscriptions-12-hours': {
+        'task': 'tasks.renew_subscriptions',
+        'schedule': 12 * 60 * 60,  # Every 12 hours (in seconds)
+    },
 }
-
-
-
-
-
-# @celery_app.task
-# def finalize_challenges():
-#     try:
-#         headers = {
-#             'X-API-Key': API_KEY,
-#             'Content-Type': 'application/json'
-#         }
-#         response = requests.post(url=BASE_URL, headers=headers)
-#         response.raise_for_status()  # Check for successful response
-#         print("Challenges finalized successfully")
-#     except requests.exceptions.RequestException as e:
-#         print(f"Error finalizing challenges: {e}")
-
-# # Schedule the task to run every 30 minutes
-# celery_app.conf.beat_schedule = {
-#     'finalize-challenges-every-30-minutes': {
-#         'task': 'tasks.finalize_challenges',
-#         'schedule': 30 * 60,  # 30 minutes in seconds
-#     },
-# }
