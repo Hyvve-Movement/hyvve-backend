@@ -2,7 +2,7 @@
 
 ## Overview
 
-Hyvve is a data collection platform designed to help users create, manage, and analyze campaigns for various types of data contributions. The backend services power the management of campaigns, contributions, and analytics. It handles tasks such as verifying contributions, tracking campaign activity, marking campaigns as expired, and providing real-time analytics.
+Hyvve is a data collection platform designed to help users create, manage, and analyze campaigns for various types of data contributions. The backend services power the management of campaigns, contributions, and analytics. **Importantly, our backend acts as a mirror for our onchain data—enhancing performance and enabling complex analytical computations that would otherwise be expensive if executed solely via RPCs.** Despite these optimizations, the Movement chain remains the single source of truth.
 
 ## Key Components
 
@@ -165,3 +165,6 @@ Hyvve is a data collection platform designed to help users create, manage, and a
 
 Hyvve uses Celery for background task processing. The task **`mark_expired_campaigns_inactive`** runs every 30 minutes to mark campaigns as inactive when their expiration date has passed.
 
+---
+
+*Note: While our backend optimizes performance and analytical computations by mirroring onchain data, it does not alter the integrity or role of blockchain data. The Movement chain remains the single source of truth for all onchain information.*
