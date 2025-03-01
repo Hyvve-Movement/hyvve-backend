@@ -2,6 +2,7 @@ import os
 import uuid
 import shutil
 import mimetypes
+import logging
 import asyncio
 
 from fastapi import APIRouter, HTTPException, Depends, Form, UploadFile, File
@@ -13,6 +14,10 @@ from redis.asyncio import Redis
 
 from app.ai_verification.services import AIVerificationSystem
 from app.core.redis import get_redis_pool  # Your redis dependency
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -30,6 +35,8 @@ async def verify_contribution(
     and wallet_address. The campaign description is fetched from the Campaign model.
     The document is then processed using the AI verification system with caching.
     """
+    logger.info(f"Received onchain_campaign_id: {onchain_campaign_id}")
+    logger.info(f"Received wallet_address: {wallet_address}")
     # Retrieve the campaign by its onchain_campaign_id.
     campaign = db.query(Campaign).filter(
         Campaign.onchain_campaign_id == onchain_campaign_id
@@ -70,6 +77,8 @@ async def verify_text_contribution(
     Endpoint to upload a text-based document (PDF, CSV, TXT, DOC, DOCX) along with an onchain_campaign_id
     and wallet_address. Uses the caching-enabled verification method.
     """
+    logger.info(f"Received onchain_campaign_id: {onchain_campaign_id}")
+    logger.info(f"Received wallet_address: {wallet_address}")
     try:
         campaign = db.query(Campaign).filter(
             Campaign.onchain_campaign_id == onchain_campaign_id
@@ -109,6 +118,8 @@ async def verify_image_contribution(
     Endpoint to upload an image (PNG, JPG, JPEG, WEBP) along with an onchain_campaign_id
     and wallet_address. Uses the caching-enabled verification method.
     """
+    logger.info(f"Received onchain_campaign_id: {onchain_campaign_id}")
+    logger.info(f"Received wallet_address: {wallet_address}")
     try:
         campaign = db.query(Campaign).filter(
             Campaign.onchain_campaign_id == onchain_campaign_id

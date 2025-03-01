@@ -13,11 +13,11 @@ from sqlalchemy.orm import relationship, declarative_base
 Base = declarative_base()
 
 logging.basicConfig()
-logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+# logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    pool_size=1000,  # Adjust based on your app's concurrency requirements
-    max_overflow=500,  # Allows for extra connections in times of high demand
+    pool_size=10,  # Adjust based on your app's concurrency requirements
+    max_overflow=5,  # Allows for extra connections in times of high demand
     pool_timeout=120,  # Reduces wait time for a connection
     pool_recycle=36000,  # Recycles connections every 1 hours
     # echo_pool='debug',  # Logs pool checkouts/checkins (remove in production)
