@@ -13,7 +13,7 @@ The backend services power the management of campaigns, contributions, and analy
    - **Contribution**: Represents a user's submission to a campaign, which can include text, documents, images, and other data.
    - **Activity**: Tracks campaign and contribution activity. Activity levels are updated based on contribution data and tracked separately for each contribution and overall campaign.
 
-### 2. **Contributions Verification**
+### 2. **Advanced AI Verification**
    - Users can upload various types of documents (text, images, etc.), which are then processed and verified using AI for accuracy and relevance.
    - The verification process is cached and uses a fairness adjustment to ensure that scores are unbiased.
    - The verification score is stored in Redis for fast access and efficiency.
