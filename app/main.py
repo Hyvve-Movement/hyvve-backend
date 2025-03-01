@@ -22,7 +22,8 @@ app.add_middleware(
     allow_origins=[
         "*",
         "http://localhost:3001",
-        "http://localhost:3000"
+        "http://localhost:3000",
+        "https://app.hyvve.xyz",
     ],
     allow_credentials=True,
     allow_methods=["*"],
