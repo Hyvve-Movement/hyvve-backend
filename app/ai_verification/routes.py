@@ -60,7 +60,7 @@ async def verify_contribution(
 
 @router.post("/contributions/verify-text", summary="Upload a text-based document to verify a contribution")
 async def verify_text_contribution(
-    # onchain_campaign_id: str = Form(...),
+    onchain_campaign_id: str = Form(...),
     wallet_address: str = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_session),
@@ -99,7 +99,7 @@ async def verify_text_contribution(
 
 @router.post("/contributions/verify-image", summary="Upload an image to verify a contribution")
 async def verify_image_contribution(
-    # onchain_campaign_id: str = Form(...),
+    onchain_campaign_id: str = Form(...),
     wallet_address: str = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_session),
