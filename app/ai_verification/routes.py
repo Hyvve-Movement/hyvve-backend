@@ -31,11 +31,11 @@ async def verify_contribution(
     The document is then processed using the AI verification system with caching.
     """
     # Retrieve the campaign by its onchain_campaign_id.
-    campaign = db.query(Campaign).filter(
-        Campaign.onchain_campaign_id == onchain_campaign_id
-    ).first()
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
+    # campaign = db.query(Campaign).filter(
+    #     Campaign.onchain_campaign_id == onchain_campaign_id
+    # ).first()
+    # if not campaign:
+    #     raise HTTPException(status_code=404, detail="Campaign not found")
     
     # Save the uploaded file to a temporary path.
     temp_file_path = f"/tmp/{uuid.uuid4()}_{file.filename}"
@@ -60,7 +60,7 @@ async def verify_contribution(
 
 @router.post("/contributions/verify-text", summary="Upload a text-based document to verify a contribution")
 async def verify_text_contribution(
-    onchain_campaign_id: str = Form(...),
+    # onchain_campaign_id: str = Form(...),
     wallet_address: str = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_session),
@@ -71,11 +71,11 @@ async def verify_text_contribution(
     and wallet_address. Uses the caching-enabled verification method.
     """
     try:
-        campaign = db.query(Campaign).filter(
-            Campaign.onchain_campaign_id == onchain_campaign_id
-        ).first()
-        if not campaign:
-            raise HTTPException(status_code=404, detail="Campaign not found")
+        # campaign = db.query(Campaign).filter(
+        #     Campaign.onchain_campaign_id == onchain_campaign_id
+        # ).first()
+        # if not campaign:
+        #     raise HTTPException(status_code=404, detail="Campaign not found")
         
         temp_file_path = f"/tmp/{uuid.uuid4()}_{file.filename}"
         with open(temp_file_path, "wb") as buffer:
@@ -99,7 +99,7 @@ async def verify_text_contribution(
 
 @router.post("/contributions/verify-image", summary="Upload an image to verify a contribution")
 async def verify_image_contribution(
-    onchain_campaign_id: str = Form(...),
+    # onchain_campaign_id: str = Form(...),
     wallet_address: str = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_session),
@@ -110,12 +110,12 @@ async def verify_image_contribution(
     and wallet_address. Uses the caching-enabled verification method.
     """
     try:
-        campaign = db.query(Campaign).filter(
-            Campaign.onchain_campaign_id == onchain_campaign_id
-        ).first()
+        # campaign = db.query(Campaign).filter(
+        #     Campaign.onchain_campaign_id == onchain_campaign_id
+        # ).first()
 
-        if not campaign:
-            raise HTTPException(status_code=404, detail="Campaign not found")
+        # if not campaign:
+        #     raise HTTPException(status_code=404, detail="Campaign not found")
         
         temp_file_path = f"/tmp/{uuid.uuid4()}_{file.filename}"
         with open(temp_file_path, "wb") as buffer:
