@@ -2,7 +2,9 @@
 
 ## Overview
 
-Hyvve is a data collection platform designed to help users create, manage, and analyze campaigns for various types of data contributions. The backend services power the management of campaigns, contributions, and analytics. **Importantly, our backend acts as a mirror for our onchain data—enhancing performance and enabling complex analytical computations that would otherwise be expensive if executed solely via RPCs.** Despite these optimizations, the Movement chain remains the single source of truth.
+Hyvve is a token-incentivized data marketplace that connects AI researchers, companies, and everyday data contributors. On Hyvve, you can buy AI-ready data or sell your own for token rewards, all on a secure, decentralized platform.
+
+The backend services power the management of campaigns, contributions, and analytics. **Importantly, our backend acts as a mirror for our onchain data—enhancing performance and enabling complex analytical computations that would otherwise be expensive if executed solely via RPCs.** Despite these optimizations, the Movement chain remains the single source of truth.
 
 ## Key Components
 
