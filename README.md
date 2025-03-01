@@ -2,7 +2,9 @@
 
 ## Overview
 
-Hyvve is a data collection platform designed to help users create, manage, and analyze campaigns for various types of data contributions. The backend services power the management of campaigns, contributions, and analytics. It handles tasks such as verifying contributions, tracking campaign activity, marking campaigns as expired, and providing real-time analytics.
+Hyvve is a token-incentivized data marketplace that connects AI researchers, companies, and everyday data contributors. On Hyvve, you can buy AI-ready data or sell your own for token rewards, all on a secure, decentralized platform.
+
+The backend services power the management of campaigns, contributions, and analytics. **Importantly, our backend acts as a mirror for our onchain data—enhancing performance and enabling complex analytical computations that would otherwise be expensive if executed solely via RPCs.** Despite these optimizations, the Movement chain remains the single source of truth.
 
 ## Key Components
 
@@ -11,7 +13,7 @@ Hyvve is a data collection platform designed to help users create, manage, and a
    - **Contribution**: Represents a user's submission to a campaign, which can include text, documents, images, and other data.
    - **Activity**: Tracks campaign and contribution activity. Activity levels are updated based on contribution data and tracked separately for each contribution and overall campaign.
 
-### 2. **Contributions Verification**
+### 2. **Advanced AI Verification**
    - Users can upload various types of documents (text, images, etc.), which are then processed and verified using AI for accuracy and relevance.
    - The verification process is cached and uses a fairness adjustment to ensure that scores are unbiased.
    - The verification score is stored in Redis for fast access and efficiency.
@@ -165,3 +167,6 @@ Hyvve is a data collection platform designed to help users create, manage, and a
 
 Hyvve uses Celery for background task processing. The task **`mark_expired_campaigns_inactive`** runs every 30 minutes to mark campaigns as inactive when their expiration date has passed.
 
+---
+
+*Note: While our backend optimizes performance and analytical computations by mirroring onchain data, it does not alter the integrity or role of blockchain data. The Movement chain remains the single source of truth for all onchain information.*
